@@ -5,15 +5,13 @@ on:
     branches: [ "main" ]
   workflow_dispatch: 
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        # UPDATED: v6 natively supports the Node 24 runtime
+        uses: actions/checkout@v6
 
       - name: Install XcodeGen
         run: brew install xcodegen
@@ -23,7 +21,6 @@ jobs:
 
       - name: Build App
         run: |
-          # The -derivedDataPath build flag forces the app into a folder we can see
           xcodebuild clean build \
             -project Calendar.xcodeproj \
             -scheme Calendar \
@@ -38,13 +35,13 @@ jobs:
       - name: Package IPA
         run: |
           mkdir -p Payload
-          # Moving the app from the new predictable 'build' folder
           mv build/Build/Products/Release-iphoneos/Calendar.app Payload/
           zip -r gitMonkCal.zip Payload
           mv gitMonkCal.zip gitMonkCal.ipa
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        # UPDATED: v7 is the 2026 standard for Node 24 support
+        uses: actions/upload-artifact@v7
         with:
           name: gitMonkCal-Build
           path: gitMonkCal.ipa
