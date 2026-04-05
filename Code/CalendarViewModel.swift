@@ -21,10 +21,11 @@ public class CalendarViewModel: ObservableObject {
     /// The current date range loaded into memory (e.g., 1 month past, 3 months forward)
     public var currentViewRange: (start: Date, end: Date)
     
+    // FIXED: Explicitly marked as @MainActor to allow the default EventKitManager initialization
+    @MainActor
     public init(eventKitManager: EventKitManager = EventKitManager()) {
         self.eventKitManager = eventKitManager
         
-        // Define an initial memory-safe loading window
         let today = Date()
         let calendar = Calendar.current
         let start = calendar.date(byAdding: .month, value: -1, to: today) ?? today
