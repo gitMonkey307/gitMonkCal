@@ -1,11 +1,10 @@
-name: Build iOS App
+name: Build gitMonkCal
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch: 
 
-# THIS IS THE NEW FIX:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -24,12 +23,14 @@ jobs:
 
       - name: Build App
         run: |
+          # The -derivedDataPath build flag forces the app into a folder we can see
           xcodebuild clean build \
             -project Calendar.xcodeproj \
             -scheme Calendar \
             -configuration Release \
             -sdk iphoneos \
             -arch arm64 \
+            -derivedDataPath build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
@@ -37,12 +38,13 @@ jobs:
       - name: Package IPA
         run: |
           mkdir -p Payload
-          mv build/Release-iphoneos/Calendar.app Payload/
-          zip -r Calendar.zip Payload
-          mv Calendar.zip Calendar.ipa
+          # Moving the app from the new predictable 'build' folder
+          mv build/Build/Products/Release-iphoneos/Calendar.app Payload/
+          zip -r gitMonkCal.zip Payload
+          mv gitMonkCal.zip gitMonkCal.ipa
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Calendar-App
-          path: Calendar.ipa
+          name: gitMonkCal-Build
+          path: gitMonkCal.ipa
