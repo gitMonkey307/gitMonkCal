@@ -1,86 +1,61 @@
 import SwiftUI
-import WeatherKit
 
 struct DayView: View {
     @ObservedObject var viewModel: CalendarViewModel
-    let date: Date
-    @State private var weather: Weather? // WeatherKit
-    @State private var isLoadingWeather = false
-
-    var events: [AppEvent] { viewModel.groupedEvents[Calendar.current.startOfDay(for: date)] ?? [] }
-    var tasks: [AppEvent] { viewModel.remindersForDay(date) }
+    let searchText: String
+    @State private var selectedDate: Date = Date()
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            Text(date.formatted(.dateTime.weekday(.wide).month(.wide).day()))
-                .font(DesignSystem.Typography.header)
-                .padding()
-
-            // Weather
-            if let weather = weather {
-                HStack {
-                    Image(systemName: weatherSymbol(for: weather.currentWeather.condition))
-                    VStack(alignment: .leading) {
-                        Text("\(Int(weather.currentWeather.temperature.value))°")
-                            .font(.largeTitle)
-                        Text(weather.currentWeather.condition.category.description)
-                            .font(DesignSystem.Typography.body)
-                    }
+            // Day Header
+            HStack {
+                Button("Today") {
+                    selectedDate = Date()
                 }
-                .padding()
-                .background(DesignSystem.Aesthetics.toolbarMaterial)
+                .font(DesignSystem.Typography.header)
+                Spacer()
+                Text(selectedDate.formatted(.dateTime.weekday(.wide).month().day()))
+                    .font(DesignSystem.Typography.header)
             }
+            .padding()
 
             Divider()
 
-            // Timeline (reuse DayColumn logic)
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach(events) { event in
-                        TimelineEventPill(event: event, columnWidth: UIScreen.main.bounds.width - DesignSystem.Layout.screenEdge * 2)
-                    }
-                    // Tasks/Birthdays
-                    Section {
-                        ForEach(tasks) { task in
+            if viewModel.isLoading {
+                ProgressView()
+            } else {
+                let events = viewModel.groupedEvents[Calendar.current.startOfDay(for: selectedDate)]?.filter {
+                    searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)
+                } ?? []
+
+                ZStack(alignment: .top) {
+                    // Hour grid
+                    VStack(spacing: 0) {
+                        ForEach(0..<24) { hour in
                             HStack {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(Color.orange)
-                                    .frame(width: 4)
-                                Text(task.title)
-                                    .font(DesignSystem.Typography.eventPill)
-                                Spacer()
-                                if task.isCompleted { Image(systemName: "checkmark.circle.fill") }
+                                Text("\(hour, specifier: "%02d"):00")
+                                    .font(DesignSystem.Typography.timeLabel)
+                                    .frame(width: 50, alignment: .leading)
+                                    .padding(.leading, DesignSystem.Layout.densePadding)
+                                Rectangle()
+                                    .fill(DesignSystem.Aesthetics.gridLine)
+                                    .frame(height: 0.5)
                             }
-                            .padding(.horizontal)
+                            Rectangle()
+                                .fill(Color.clear)
+                                .frame(height: DesignSystem.Layout.timelineHourHeight)
                         }
-                    } header: {
-                        Text("Tasks & Birthdays")
-                            .font(DesignSystem.Typography.header)
+                    }
+
+                    ForEach(events) { event in
+                        TimelineEventPill(event: event, columnWidth: UIScreen.main.bounds.width - 60)
                     }
                 }
             }
         }
-        .refreshable { await viewModel.refreshData() }
-        .task { await loadWeather() }
-    }
-
-    private func loadWeather() async {
-        isLoadingWeather = true
-        // WeatherKit example (requires location perms)
-        do {
-            let service = WeatherService.shared
-            let loc = CLLocation(latitude: 37.7749, longitude: -122.4194) // SF demo
-            weather = try await service.weather(for: loc, including: .current)
-        } catch {}
-        isLoadingWeather = false
-    }
-
-    private func weatherSymbol(for condition: WeatherCondition) -> String {
-        switch condition {
-        case .clear: return "sun.max"
-        case .cloudy: return "cloud"
-        default: return "cloud.sun"
+        .background(Color(uiColor: .systemBackground))
+        .refreshable {
+            await viewModel.refreshData()
         }
     }
 }
