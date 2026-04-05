@@ -2,54 +2,45 @@ import SwiftUI
 
 struct TasksView: View {
     @ObservedObject var viewModel: CalendarViewModel
-    @State private var showingTaskEdit = false
-    @State private var editMode = EditMode.inactive
+    let searchText: String
 
-    var tasks: [AppEvent] { viewModel.allReminders.sorted { $0.startDate < $1.startDate } }
+    private var filteredReminders: [AppReminder] {
+        viewModel.filteredReminders
+    }
 
     var body: some View {
-        NavigationStack {
-            List {
-                ForEach(tasks) { task in
-                    HStack {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(task.priorityColor)
-                            .frame(width: 4)
-                        VStack(alignment: .leading) {
-                            Text(task.title)
-                                .font(DesignSystem.Typography.eventPill)
-                            if let notes = task.notes, !notes.isEmpty {
-                                Text(notes)
-                                    .font(DesignSystem.Typography.timeLabel)
-                                    .foregroundColor(.secondary)
+        List {
+            ForEach(filteredReminders) { reminder in
+                HStack(spacing: DesignSystem.Layout.densePadding) {
+                    Image(systemName: reminder.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(reminder.isCompleted ? .green : .secondary)
+                        .font(.title3)
+                        .onTapGesture {
+                            Task {
+                                await viewModel.toggleReminderCompleted(reminder)
                             }
                         }
-                        Spacer()
-                        Button(task.isCompleted ? "Done" : "Complete") {
-                            viewModel.toggleTaskCompleted(task)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(reminder.title)
+                            .font(DesignSystem.Typography.eventPill)
+                            .strikethrough(reminder.isCompleted)
+                        if let dueDate = reminder.dueDate {
+                            Text(dueDate.formatted(.dateTime.hour().minute()))
+                                .font(DesignSystem.Typography.timeLabel)
+                                .foregroundColor(.secondary)
                         }
-                        .buttonStyle(.borderless)
                     }
+                    Spacer()
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(reminder.displayColor)
+                        .frame(width: 4)
                 }
-                .onDelete { viewModel.deleteReminder(at: $0) }
+                .padding(.vertical, 2)
             }
-            .environment(\.editMode, $editMode)
-            .navigationTitle("Tasks")
-            .toolbar {
-                ToolbarItem { Button("New Task") { showingTaskEdit = true } }
-                ToolbarItem { EditButton() }
-            }
-            .sheet(isPresented: $showingTaskEdit) {
-                EventEditView(viewModel: viewModel, isTask: true)
-            }
-            .refreshable { await viewModel.refreshData() }
+        }
+        .listStyle(.plain)
+        .refreshable {
+            await viewModel.refreshReminders()
         }
     }
-}
-
-extension AppEvent {
-    var priorityColor: Color {
-        Color.orange.opacity(CGFloat(priority ?? 0) / 5)
-    }
-    var isCompleted: Bool { notes?.contains("completed") == true } // Simple flag
 }
