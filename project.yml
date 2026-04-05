@@ -1,0 +1,12 @@
+name: Calendar
+options:
+  bundleIdPrefix: com.blanikinteractive
+targets:
+  Calendar:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [Code]
+    settings:
+      CODE_SIGNING_ALLOWED: NO
+      CODE_SIGNING_REQUIRED: NO
