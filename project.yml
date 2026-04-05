@@ -1,12 +1,32 @@
 name: Calendar
 options:
   bundleIdPrefix: com.blanikinteractive
+
 targets:
   Calendar:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
-    sources: [Code]
+    sources:
+      - path: Code
+        excludes:
+          - "AgendaWidget.swift"
+    dependencies:
+      - target: AgendaWidget
+        embed: true
+    settings:
+      CODE_SIGNING_ALLOWED: NO
+      CODE_SIGNING_REQUIRED: NO
+      
+  AgendaWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - Code/AgendaWidget.swift
+      - Code/AppEvent.swift
+      - Code/DesignSystem.swift
+      - Code/EventKitManager.swift
     settings:
       CODE_SIGNING_ALLOWED: NO
       CODE_SIGNING_REQUIRED: NO
