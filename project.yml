@@ -1,4 +1,4 @@
-name: gitMonkCal
+name: Calendar
 options:
   bundleIdPrefix: com.blanikinteractive
 
@@ -9,7 +9,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: Code
-        excludes: [ "AgendaWidget.swift" ]
+        excludes:
+          - "AgendaWidget.swift"
     dependencies:
       - target: AgendaWidget
         embed: true
@@ -18,8 +19,6 @@ targets:
       CODE_SIGNING_REQUIRED: NO
       GENERATE_INFOPLIST_FILE: YES
       INFOPLIST_KEY_UILaunchScreen_Generation: YES
-      INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "gitMonkCal needs access to show and manage your events."
-      INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "gitMonkCal needs access to manage your tasks and to-dos."
       
   AgendaWidget:
     type: app-extension
@@ -36,4 +35,4 @@ targets:
       CODE_SIGNING_REQUIRED: NO
       GENERATE_INFOPLIST_FILE: YES
       INFOPLIST_KEY_NSExtensionPointIdentifier: com.apple.widgetkit-extension
-      INFOPLIST_KEY_CFBundleDisplayName: gitMonkWidget
+      INFOPLIST_KEY_CFBundleDisplayName: AgendaWidget
