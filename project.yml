@@ -19,7 +19,7 @@ targets:
       CODE_SIGNING_REQUIRED: NO
       GENERATE_INFOPLIST_FILE: YES
       INFOPLIST_KEY_UILaunchScreen_Generation: YES
-      
+
   AgendaWidget:
     type: app-extension
     platform: iOS
