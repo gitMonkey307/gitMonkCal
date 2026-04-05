@@ -17,6 +17,8 @@ targets:
     settings:
       CODE_SIGNING_ALLOWED: NO
       CODE_SIGNING_REQUIRED: NO
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_UILaunchScreen_Generation: YES
       
   AgendaWidget:
     type: app-extension
@@ -28,5 +30,9 @@ targets:
       - Code/DesignSystem.swift
       - Code/EventKitManager.swift
     settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.blanikinteractive.Calendar.AgendaWidget
       CODE_SIGNING_ALLOWED: NO
       CODE_SIGNING_REQUIRED: NO
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_NSExtensionPointIdentifier: com.apple.widgetkit-extension
+      INFOPLIST_KEY_CFBundleDisplayName: AgendaWidget
