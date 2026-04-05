@@ -3,52 +3,36 @@ import SwiftUI
 import EventKit
 
 // MARK: - Timeline Provider
-/// The engine that dictates when the widget updates. 
-/// Widgets are severely memory-limited, so we must be efficient.
 struct AgendaProvider: TimelineProvider {
     
-    // We instantiate a lightweight instance of our manager specifically for the widget
-    let eventManager = EventKitManager()
-    
     func placeholder(in context: Context) -> AgendaEntry {
-        AgendaEntry(date: Date(), events: AppEvent.dummyData[Calendar.current.startOfDay(for: Date())] ?? [])
+        // FIXED: Replaced hidden dummy data with a safe empty array
+        AgendaEntry(date: Date(), events: [])
     }
 
     func getSnapshot(in context: Context, completion: @escaping (AgendaEntry) -> ()) {
-        // Provide a quick snapshot for the widget gallery
-        let entry = AgendaEntry(date: Date(), events: AppEvent.dummyData[Calendar.current.startOfDay(for: Date())] ?? [])
+        let entry = AgendaEntry(date: Date(), events: [])
         completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
-        // This is where we fetch the real data. 
-        // We use a detached Task because getTimeline is synchronous but our fetch is async.
-        Task {
+        // FIXED: Safely wrapped our data fetch in a MainActor Task to satisfy the compiler
+        Task { @MainActor in
             var entries: [AgendaEntry] = []
             let currentDate = Date()
-            
-            // We fetch the next 24 hours of events
             let endDate = Calendar.current.date(byAdding: .day, value: 1, to: currentDate)!
             
-            // Note: In a production App Group, we would read the user's hidden calendars from UserDefaults(suiteName: "group.com...") here.
+            let eventManager = EventKitManager()
+            
             do {
-                // Ensure we have permission before fetching
                 try await eventManager.requestCalendarAccess()
                 let fetchedEvents = try await eventManager.fetchEvents(from: currentDate, to: endDate)
-                
-                // Sort chronologically
                 let sortedEvents = fetchedEvents.sorted { $0.startDate < $1.startDate }
-                
-                // Create the entry
-                let entry = AgendaEntry(date: currentDate, events: sortedEvents)
-                entries.append(entry)
-                
+                entries.append(AgendaEntry(date: currentDate, events: sortedEvents))
             } catch {
-                // If we fail (e.g., no permissions), return an empty state
                 entries.append(AgendaEntry(date: currentDate, events: []))
             }
             
-            // Update the widget every 30 minutes to save battery, or when the system dictates
             let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: currentDate)!
             let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
             
@@ -63,17 +47,16 @@ struct AgendaEntry: TimelineEntry {
     let events: [AppEvent]
 }
 
-// MARK: - Widget UI (The BC2 Agenda Clone)
+// MARK: - Widget UI
 struct AgendaWidgetEntryView : View {
     var entry: AgendaProvider.Entry
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSystem.Layout.densePadding) {
-            // Header
             HStack {
                 Text(entry.date.formatted(.dateTime.weekday(.wide).month().day()))
                     .font(DesignSystem.Typography.header)
-                    .foregroundColor(.blue) // iOS Native Header
+                    .foregroundColor(.blue) 
                 Spacer()
                 Image(systemName: "calendar")
                     .foregroundColor(.secondary)
@@ -82,7 +65,6 @@ struct AgendaWidgetEntryView : View {
             
             Divider()
             
-            // Dense Event List
             if entry.events.isEmpty {
                 Spacer()
                 Text("No upcoming events")
@@ -91,11 +73,9 @@ struct AgendaWidgetEntryView : View {
                     .frame(maxWidth: .infinity, alignment: .center)
                 Spacer()
             } else {
-                VStack(spacing: 2) { // Extremely tight spacing mirroring BC2
-                    // Only show up to 4 events to prevent clipping on small widgets
+                VStack(spacing: 2) { 
                     ForEach(entry.events.prefix(4)) { event in
                         HStack(spacing: 6) {
-                            // Color Tag
                             RoundedRectangle(cornerRadius: 2)
                                 .fill(event.displayColor)
                                 .frame(width: 4)
@@ -119,7 +99,6 @@ struct AgendaWidgetEntryView : View {
             }
             Spacer(minLength: 0)
         }
-        // iOS 17 specific widget background protocol
         .containerBackground(Color(uiColor: .systemBackground), for: .widget)
     }
 }
