@@ -3,7 +3,11 @@ name: Build iOS App
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch: # This allows you to manually click a "Build" button
+  workflow_dispatch: 
+
+# THIS IS THE NEW FIX:
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
