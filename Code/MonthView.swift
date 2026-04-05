@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Dummy Data Generator
 /// A quick extension to generate mock data so we can see the density immediately.
 extension AppEvent {
-    static var dummyData: [Date: [AppEvent]] {
+    public static var dummyData: [Date: [AppEvent]] {
         let calendar = Calendar.current
         let today = Date()
         var events: [Date: [AppEvent]] = [:]
