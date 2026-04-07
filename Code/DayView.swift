@@ -1,5 +1,4 @@
 import SwiftUI
-import Foundation
 
 struct DayView: View {
     @ObservedObject var viewModel: CalendarViewModel
@@ -19,7 +18,7 @@ struct DayView: View {
             if viewModel.isLoading {
                 ProgressView()
             } else {
-                let events = viewModel.groupedEvents[Foundation.Calendar.current.startOfDay(for: selectedDate)]?.filter {
+                let events = viewModel.groupedEvents[Calendar.current.startOfDay(for: selectedDate)]?.filter {
                     searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)
                 } ?? []
 
@@ -35,7 +34,7 @@ struct DayView: View {
                             )
                             .padding(.leading, 60)
                         }
-                        if Foundation.Calendar.current.isDateInToday(selectedDate) {
+                        if Calendar.current.isDateInToday(selectedDate) {
                             LiveTimeIndicator(width: UIScreen.main.bounds.width - 60.0).padding(.leading, 60)
                         }
                     }
