@@ -8,8 +8,7 @@ struct MonthView: View {
 
     private var monthDays: [Date] {
         var calendar = Calendar.current
-        calendar.firstWeekday = viewModel.firstDayOfWeek // Feature: Dynamic Start of Week
-        
+        calendar.firstWeekday = viewModel.firstDayOfWeek
         let components = calendar.dateComponents([.year, .month], from: viewModel.anchorDate)
         guard let startOfMonth = calendar.date(from: components) else { return [] }
         let weekday = calendar.component(.weekday, from: startOfMonth)
@@ -20,18 +19,7 @@ struct MonthView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                let days = viewModel.firstDayOfWeek == 1 ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-                ForEach(days, id: \.self) { day in
-                    Text(day)
-                        .font(DesignSystem.Typography.timeLabel)
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, DesignSystem.Layout.densePadding)
-                        .border(DesignSystem.Aesthetics.gridLine, width: 0.25)
-                }
-            }
-
+            headerRow
             LazyVGrid(columns: columns, spacing: 0) {
                 ForEach(monthDays, id: \.self) { date in
                     let events = viewModel.groupedEvents[Calendar.current.startOfDay(for: date)]?.filter {
@@ -44,6 +32,20 @@ struct MonthView: View {
         }
         .refreshable { await viewModel.refreshData() }
     }
+
+    private var headerRow: some View {
+        HStack(spacing: 0) {
+            let days = viewModel.firstDayOfWeek == 1 ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            ForEach(days, id: \.self) { day in
+                Text(day)
+                    .font(DesignSystem.Typography.timeLabel)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, DesignSystem.Layout.densePadding)
+                    .border(DesignSystem.Aesthetics.gridLine, width: 0.25)
+            }
+        }
+    }
 }
 
 struct MonthDayCell: View {
@@ -52,13 +54,24 @@ struct MonthDayCell: View {
     let opacity: Double
     @ObservedObject var viewModel: CalendarViewModel
 
+    // FIXED: Moved imperative logic out of ViewBuilder
+    private var isFirstDayOfDisplayWeek: Bool {
+        var cal = Calendar.current
+        cal.firstWeekday = viewModel.firstDayOfWeek
+        return cal.component(.weekday, from: date) == cal.firstWeekday
+    }
+
+    private var currentWeekOfYear: Int {
+        var cal = Calendar.current
+        cal.firstWeekday = viewModel.firstDayOfWeek
+        return cal.component(.weekOfYear, from: date)
+    }
+
     var body: some View {
         VStack(alignment: .trailing, spacing: 1) {
             HStack {
-                var calendar = Calendar.current
-                calendar.firstWeekday = viewModel.firstDayOfWeek
-                if calendar.component(.weekday, from: date) == calendar.firstWeekday {
-                    Text("W\(calendar.component(.weekOfYear, from: date))")
+                if isFirstDayOfDisplayWeek {
+                    Text("W\(currentWeekOfYear)")
                         .font(.system(size: 8, weight: .bold))
                         .foregroundColor(.secondary.opacity(0.5))
                         .padding(.leading, 2)
@@ -75,7 +88,7 @@ struct MonthDayCell: View {
 
             ForEach(events) { event in
                 HStack(spacing: 2) {
-                    if event.isBirthday { Text("🎁").font(.system(size: 8)) } // Feature: Birthday Icon
+                    if event.isBirthday { Text("🎁").font(.system(size: 8)) }
                     Text(event.title)
                         .font(DesignSystem.Typography.eventPill)
                         .lineLimit(1)
