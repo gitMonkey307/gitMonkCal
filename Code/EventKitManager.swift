@@ -79,28 +79,35 @@ public class EventKitManager: ObservableObject {
     }
 
     // CREATE / UPDATE
-    public func saveEvent(title: String, start: Date, end: Date, isAllDay: Bool, location: String?, notes: String?, calendarID: String, alarms: [TimeInterval], recurrenceType: RecurrenceType) async throws {
-        let event = EKEvent(eventStore: store)
+    public func saveEvent(id: String? = nil, title: String, start: Date, end: Date, isAllDay: Bool, location: String?, notes: String?, calendarID: String, alarms: [TimeInterval], recurrenceType: RecurrenceType) async throws {
+        // Fetch existing or create new
+        let event = (id != nil ? store.event(withIdentifier: id!) : nil) ?? EKEvent(eventStore: store)
+        
         event.title = title; event.startDate = start; event.endDate = end; event.isAllDay = isAllDay
         event.location = location; event.notes = notes
         event.calendar = store.calendar(withIdentifier: calendarID) ?? store.defaultCalendarForNewEvents
         
+        if let existingAlarms = event.alarms { for a in existingAlarms { event.removeAlarm(a) } }
         for offset in alarms { event.addAlarm(EKAlarm(relativeOffset: offset)) }
         
-        if recurrenceType != .none {
+        if recurrenceType != .none && event.recurrenceRules?.isEmpty != false {
             let freq: EKRecurrenceFrequency = {
                 switch recurrenceType {
                 case .daily: return .daily; case .weekly: return .weekly; case .monthly: return .monthly; case .yearly: return .yearly; default: return .daily
                 }
             }()
             event.addRecurrenceRule(EKRecurrenceRule(recurrenceWith: freq, interval: 1, end: nil))
+        } else if recurrenceType == .none, let rules = event.recurrenceRules {
+            for rule in rules { event.removeRecurrenceRule(rule) }
         }
         
         try store.save(event, span: .thisEvent)
     }
     
-    public func saveTask(title: String, dueDate: Date, notes: String?, listID: String) async throws {
-        let task = EKReminder(eventStore: store)
+    public func saveTask(id: String? = nil, title: String, dueDate: Date, notes: String?, listID: String) async throws {
+        // Fetch existing or create new
+        let task = (id != nil ? store.calendarItem(withIdentifier: id!) as? EKReminder : nil) ?? EKReminder(eventStore: store)
+        
         task.title = title; task.notes = notes
         task.calendar = store.calendar(withIdentifier: listID) ?? store.defaultCalendarForNewReminders()
         task.dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
@@ -115,6 +122,10 @@ public class EventKitManager: ObservableObject {
     
     public func deleteEvent(identifier: String) throws {
         if let event = store.event(withIdentifier: identifier) { try store.remove(event, span: .thisEvent) }
+    }
+    
+    public func deleteTask(identifier: String) throws {
+        if let task = store.calendarItem(withIdentifier: identifier) as? EKReminder { try store.remove(task, commit: true) }
     }
 }
 
