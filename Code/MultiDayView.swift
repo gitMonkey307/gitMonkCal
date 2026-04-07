@@ -16,7 +16,9 @@ struct MultiDayView: View {
                             let events = viewModel.groupedEvents[date]?.filter {
                                 viewModel.searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(viewModel.searchText)
                             } ?? []
-                            DayColumn(date: date, events: events, width: columnWidth, opacity: viewModel.eventOpacity)
+                            
+                            // Passed viewModel down to the column
+                            DayColumn(date: date, events: events, width: columnWidth, opacity: viewModel.eventOpacity, viewModel: viewModel)
                         }
                     }
                     .scrollTargetLayout()
@@ -52,6 +54,7 @@ struct DayColumn: View {
     let events: [AppEvent]
     let width: CGFloat
     let opacity: Double
+    @ObservedObject var viewModel: CalendarViewModel
 
     var body: some View {
         VStack(spacing: 0) {
@@ -61,7 +64,8 @@ struct DayColumn: View {
             
             ZStack(alignment: .top) {
                 ForEach(events) { event in
-                    TimelineEventPill(event: event, columnWidth: width, opacity: opacity)
+                    // Passed viewModel down to the Pill
+                    TimelineEventPill(event: event, columnWidth: width, opacity: opacity, viewModel: viewModel)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -71,6 +75,7 @@ struct DayColumn: View {
     }
 }
 
+// Shared Component: Used by MultiDayView and DayView
 struct TimelineEventPill: View {
     let event: AppEvent
     let columnWidth: CGFloat
@@ -83,18 +88,4 @@ struct TimelineEventPill: View {
             let startMins = CGFloat(cal.component(.hour, from: event.startDate) * 60 + cal.component(.minute, from: event.startDate))
             let duration = CGFloat(event.durationInMinutes)
             let topOffset = (startMins / 60.0) * DesignSystem.Layout.timelineHourHeight
-            let height = max((duration / 60.0) * DesignSystem.Layout.timelineHourHeight, 20)
-
-            VStack(alignment: .leading, spacing: 0) {
-                Text(event.title).font(DesignSystem.Typography.eventPill).fontWeight(.bold).lineLimit(1)
-            }
-            .padding(4)
-            .frame(width: columnWidth - 4, height: height, alignment: .topLeading)
-            .background(event.displayColor.opacity(opacity))
-            .foregroundColor(event.displayColor)
-            .cornerRadius(DesignSystem.Aesthetics.pillRadius)
-            .offset(y: topOffset)
-            .onTapGesture { viewModel.editingEvent = event }
-        }
-    }
-}
+            let height = max((duration / 60
