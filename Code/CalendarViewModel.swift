@@ -13,11 +13,15 @@ public class CalendarViewModel: ObservableObject {
     @Published public var visibleCalendarIDs: Set<String> = []
     @Published public var visibleReminderListIDs: Set<String> = []
     
+    // UI Routing State
     @Published public var isLoading: Bool = false
     @Published public var anchorDate: Date = Date()
     @Published public var searchText: String = ""
     @Published public var selectedView: String = "month"
     @Published public var daysToDisplay: Int = 7
+    @Published public var isAddingNew: Bool = false
+    @Published public var editingEvent: AppEvent? = nil
+    @Published public var editingTask: AppReminder? = nil
     
     @Published public var coreHourStart: Int = 8
     @Published public var coreHourEnd: Int = 18
@@ -92,6 +96,14 @@ public class CalendarViewModel: ObservableObject {
     
     public func toggleReminderCompleted(_ reminder: AppReminder) async {
         do { try await eventKitManager.toggleTaskCompletion(reminder); await refreshData() } catch { print(error) }
+    }
+    
+    public func deleteEvent(_ event: AppEvent) {
+        do { try eventKitManager.deleteEvent(identifier: event.id); Task { await refreshData() } } catch { print("Delete failed") }
+    }
+    
+    public func deleteTask(_ task: AppReminder) {
+        do { try eventKitManager.deleteTask(identifier: task.id); Task { await refreshData() } } catch { print("Delete failed") }
     }
     
     public var dateRangeArray: [Date] {
