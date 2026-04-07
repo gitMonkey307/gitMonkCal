@@ -5,14 +5,6 @@ public enum EventSource: String, Codable {
     case eventKit, reminders, local
 }
 
-// Unified Types for Global Visibility
-public enum UnifiedAgendaItem: Identifiable {
-    case event(AppEvent)
-    case task(AppReminder)
-    public var id: String { switch self { case .event(let e): return "e_" + e.id; case .task(let t): return "t_" + t.id } }
-    public var sortDate: Date { switch self { case .event(let e): return e.startDate; case .task(let t): return t.dueDate ?? Date.distantFuture } }
-}
-
 public struct EventTemplate: Identifiable, Codable {
     public let id: UUID
     public var title: String
@@ -57,8 +49,13 @@ public struct AppEvent: Identifiable, Hashable, Codable {
     }
     
     public var durationInMinutes: Int {
-        let components = Calendar.current.dateComponents([.minute], from: startDate, to: endDate)
+        let components = Foundation.Calendar.current.dateComponents([.minute], from: startDate, to: endDate)
         return components.minute ?? 0
+    }
+    
+    // Feature: Overlap Detection logic
+    public func overlaps(with other: AppEvent) -> Bool {
+        return startDate < other.endDate && other.startDate < endDate
     }
 }
 
@@ -81,5 +78,13 @@ extension Color {
         var rgb: UInt64 = 0
         guard Scanner(string: hexSanitized).scanHexInt64(&rgb) else { return nil }
         self.init(red: Double((rgb & 0xFF0000) >> 16) / 255.0, green: Double((rgb & 0x00FF00) >> 8) / 255.0, blue: Double(rgb & 0x0000FF) / 255.0)
+    }
+
+    // FIXED: Robust Hex serialization for custom highlights
+    func toHex() -> String? {
+        let uic = UIColor(self)
+        var r: CGFloat = 0; var g: CGFloat = 0; var b: CGFloat = 0; var a: CGFloat = 0
+        uic.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return String(format: "#%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
     }
 }
