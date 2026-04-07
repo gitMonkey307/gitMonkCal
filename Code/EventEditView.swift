@@ -8,7 +8,7 @@ public struct EventEditView: View {
     var eventToEdit: AppEvent?
     var taskToEdit: AppReminder?
     var initialDate: Date?
-    var eventToDuplicate: AppEvent? // Feature: Duplication Capture
+    var eventToDuplicate: AppEvent?
     
     @State private var isTask: Bool = false
     @State private var title: String = ""
@@ -121,16 +121,20 @@ public struct EventEditView: View {
     private var actionSection: some View {
         if eventToEdit != nil || taskToEdit != nil {
             Section {
-                // Feature: Native ShareLink Integration
                 if let e = eventToEdit {
-                    ShareLink(item: "Event: \(title)\nDate: \(startDate.formatted(.dateTime.month().day().year().hour().minute()))\nLocation: \(location.isEmpty ? "TBD" : location)") {
+                    ShareLink(item: "Event: \(title)\nDate: \(startDate.formatted())\nLocation: \(location)") {
                         Label("Share Event", systemImage: "square.and.arrow.up")
                             .frame(maxWidth: .infinity, alignment: .center)
                     }
+                    if !e.location!.isEmpty {
+                        Link(destination: URL(string: "http://maps.apple.com/?q=\(e.location!.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!)")!) {
+                            Label("Open in Maps", systemImage: "map").frame(maxWidth: .infinity, alignment: .center)
+                        }
+                    }
                 }
                 Button("Delete", role: .destructive) {
-                    if let e = eventToEdit { viewModel.deleteEvent(e) }
-                    if let t = taskToEdit { viewModel.deleteTask(t) }
+                    if eventToEdit != nil { viewModel.deleteEvent(eventToEdit!) }
+                    if taskToEdit != nil { viewModel.deleteTask(taskToEdit!) }
                     dismiss()
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
@@ -144,7 +148,6 @@ public struct EventEditView: View {
             startDate = e.startDate; endDate = e.endDate; notes = e.notes ?? ""; selectedID = e.calendarID
             alarms = e.alarms; recurrenceType = e.recurrence
         } else if let dup = eventToDuplicate {
-            // Feature: Duplication Setup
             isTask = false; title = dup.title + " (Copy)"; location = dup.location ?? ""; isAllDay = dup.isAllDay
             startDate = dup.startDate; endDate = dup.endDate; notes = dup.notes ?? ""; selectedID = dup.calendarID
             alarms = dup.alarms; recurrenceType = dup.recurrence
@@ -158,14 +161,9 @@ public struct EventEditView: View {
             }
             if let target = initialDate {
                 if let noon = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: target) {
-                    startDate = noon
-                    // Feature: Apply custom default duration
-                    endDate = Calendar.current.date(byAdding: .minute, value: viewModel.defaultDuration, to: noon) ?? noon
-                } else {
-                    startDate = target; endDate = target
-                }
+                    startDate = noon; endDate = Calendar.current.date(byAdding: .minute, value: viewModel.defaultDuration, to: noon) ?? noon
+                } else { startDate = target; endDate = target }
             } else {
-                // Standard default duration fallback
                 endDate = Calendar.current.date(byAdding: .minute, value: viewModel.defaultDuration, to: startDate) ?? startDate
             }
         }
@@ -177,11 +175,9 @@ public struct EventEditView: View {
             if isTask {
                 try await viewModel.eventKitManager.saveTask(id: taskToEdit?.id, title: title, dueDate: startDate, notes: notes, listID: selectedID)
             } else {
-                // If eventToDuplicate is present, id is deliberately nil so it saves as new
                 try await viewModel.eventKitManager.saveEvent(id: eventToEdit?.id, title: title, start: startDate, end: endDate, isAllDay: isAllDay, location: location, notes: notes, calendarID: selectedID, alarms: alarms, recurrenceType: recurrenceType)
             }
-            await viewModel.refreshData()
-            dismiss()
+            await viewModel.refreshData(); dismiss()
         } catch { print("Save failed: \(error)") }
         isSaving = false
     }
