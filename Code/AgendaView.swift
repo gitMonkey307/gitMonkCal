@@ -49,6 +49,7 @@ struct AgendaView: View {
     }
 }
 
+// FIXED: Defined inside to ensure local scope visibility
 struct AgendaRowView: View {
     let item: UnifiedAgendaItem; @ObservedObject var viewModel: CalendarViewModel; let searchText: String
     var body: some View {
@@ -84,5 +85,6 @@ struct AgendaRowView: View {
         }
         .onTapGesture { viewModel.editingTask = task }
     }
+    
     private func delete() { switch item { case .event(let e): viewModel.deleteEvent(e); case .task(let t): viewModel.deleteTask(t) } }
 }
