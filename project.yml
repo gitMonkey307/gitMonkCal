@@ -1,9 +1,9 @@
-name: Calendar
+name: gitMonkCal
 options:
   bundleIdPrefix: com.gitmonk
 
 targets:
-  Calendar:
+  gitMonkCal:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
@@ -18,7 +18,7 @@ targets:
       CODE_SIGNING_ALLOWED: NO
       CODE_SIGNING_REQUIRED: NO
       GENERATE_INFOPLIST_FILE: YES
-      PRODUCT_BUNDLE_IDENTIFIER: com.gitmonk.Calendar
+      PRODUCT_BUNDLE_IDENTIFIER: com.gitmonk.gitMonkCal
       INFOPLIST_KEY_UILaunchScreen_Generation: YES
       INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "gitMonkCal needs access to manage your schedule."
       INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "gitMonkCal needs access to sync your tasks."
@@ -33,7 +33,7 @@ targets:
       - Code/DesignSystem.swift
       - Code/EventKitManager.swift
     settings:
-      PRODUCT_BUNDLE_IDENTIFIER: com.gitmonk.Calendar.AgendaWidget
+      PRODUCT_BUNDLE_IDENTIFIER: com.gitmonk.gitMonkCal.AgendaWidget
       CODE_SIGNING_ALLOWED: NO
       CODE_SIGNING_REQUIRED: NO
       GENERATE_INFOPLIST_FILE: YES
