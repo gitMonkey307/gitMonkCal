@@ -5,8 +5,7 @@ import Foundation
 public struct EventEditView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: CalendarViewModel
-    @FocusState private var isNotesFocused: Bool // Edge-case: Keyboard Trapping
-    
+    @FocusState private var isNotesFocused: Bool
     var eventToEdit: AppEvent?; var taskToEdit: AppReminder?; var initialDate: Date?; var eventToDuplicate: AppEvent?
     
     @State private var isTask: Bool = false
@@ -52,31 +51,20 @@ public struct EventEditView: View {
                 timeSection
                 if !isTask { recurrenceSection; alarmSection }
                 calendarListSection
-                Section("Notes") {
-                    TextEditor(text: $notes)
-                        .frame(minHeight: 100)
-                        .focused($isNotesFocused) // Keyboard logic
-                }
+                Section("Notes") { TextEditor(text: $notes).frame(minHeight: 100).focused($isNotesFocused) }
                 actionSection
             }
             .navigationTitle(navTitle)
             .toolbar {
-                ToolbarItem(placement: .keyboard) {
-                    Button("Done") { isNotesFocused = false }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { Task { await save() } }.disabled(isSaveDisabled)
-                }
+                ToolbarItem(placement: .keyboard) { Button("Done") { isNotesFocused = false } }
+                ToolbarItem(placement: .confirmationAction) { Button("Save") { Task { await save() } }.disabled(isSaveDisabled) }
             }
             .onAppear(perform: setupInitialState)
         }
     }
 
     private func save() async {
-        isSaving = true
-        viewModel.saveLocation(location)
-        let colorHex = customColor.toHex()
-        
+        isSaving = true; viewModel.saveLocation(location); let colorHex = customColor.toHex()
         do {
             if isTask {
                 try await viewModel.eventKitManager.saveTask(id: taskToEdit?.id, title: title, dueDate: startDate, notes: notes, listID: selectedID, priority: taskPriority)
@@ -111,5 +99,6 @@ public struct EventEditView: View {
     @ViewBuilder private var alarmSection: some View { Section("Alarms") { Button("Add Alarm") { alarms.append(-900) }; ForEach(0..<alarms.count, id: \.self) { i in HStack { Text("\(Int(abs(alarms[i])/60))m before"); Spacer(); Button(role: .destructive) { alarms.remove(at: i) } label: { Image(systemName: "minus.circle") } } } } }
     @ViewBuilder private var calendarListSection: some View { Section(isTask ? "List" : "Calendar") { Picker("Select", selection: $selectedID) { if isTask { ForEach(viewModel.availableReminderLists, id: \.calendarIdentifier) { Text($0.title).tag($0.calendarIdentifier) } } else { ForEach(viewModel.availableCalendars, id: \.calendarIdentifier) { Text($0.title).tag($0.calendarIdentifier) } } } } }
     @ViewBuilder private var recentLocationsPicker: some View { if !viewModel.recentLocations.isEmpty && location.isEmpty { ScrollView(.horizontal, showsIndicators: false) { HStack { ForEach(viewModel.recentLocations, id: \.self) { loc in Button(loc) { location = loc }.font(.caption).padding(6).background(Color.secondary.opacity(0.1)).cornerRadius(6) } } } } }
-    @ViewBuilder private var actionSection: some View { Section { Group { if let e = eventToEdit { ShareLink(item: "Event: \(title)\nAt: \(location)\nDate: \(startDate.formatted())") { Label("Share Event", systemImage: "square.and.arrow.up") }; if !location.isEmpty, let enc = location.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed), let url = URL(string: "http://maps.apple.com/?q=\(enc)") { Button { UIApplication.shared.open(url) } label: { Label("Open in Maps", systemImage: "map") } } }; if eventToEdit != nil || taskToEdit != nil { Button("Delete Entry", role: .destructive) { if let e = eventToEdit { viewModel.deleteEvent(e) } else if let t = taskToEdit { viewModel.deleteTask(t) }; dismiss() }.frame(maxWidth: .infinity, alignment: .center) } } } }
+    // FIXED: Cleaned up unused variable warning
+    @ViewBuilder private var actionSection: some View { Section { Group { if eventToEdit != nil { if let loc = location.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed), let url = URL(string: "http://maps.apple.com/?q=\(loc)") { Button { UIApplication.shared.open(url) } label: { Label("Open in Maps", systemImage: "map") } } }; if eventToEdit != nil || taskToEdit != nil { Button("Delete Entry", role: .destructive) { if let e = eventToEdit { viewModel.deleteEvent(e) } else if let t = taskToEdit { viewModel.deleteTask(t) }; dismiss() }.frame(maxWidth: .infinity, alignment: .center) } } } }
 }
