@@ -5,7 +5,6 @@ public enum EventSource: String, Codable {
     case eventKit, reminders, local
 }
 
-// NEW: For BC2 Quick-Entry workflow
 public struct EventTemplate: Identifiable, Codable {
     public let id: UUID
     public var title: String
@@ -38,7 +37,7 @@ public struct AppEvent: Identifiable, Hashable, Codable {
     public var source: EventSource
     public var calendarID: String
     public var colorHex: String 
-    public var customColorHex: String? // Feature: Override Calendar Color
+    public var customColorHex: String?
     public var isBirthday: Bool
 
     public init(id: String = UUID().uuidString, title: String, startDate: Date, endDate: Date, isAllDay: Bool = false, location: String? = nil, notes: String? = nil, alarms: [TimeInterval] = [], recurrence: RecurrenceType = .none, source: EventSource = .local, calendarID: String, colorHex: String = "#007AFF", customColorHex: String? = nil, isBirthday: Bool = false) {
@@ -46,8 +45,9 @@ public struct AppEvent: Identifiable, Hashable, Codable {
     }
 
     public var displayColor: Color {
-        if let custom = customColorHex { return Color(hex: custom) ?? Color(hex: colorHex) ?? .blue }
-        return Color(hex: colorHex) ?? .blue
+        // FIXED: Removed 'hex:' label to match new extension
+        if let custom = customColorHex { return Color(custom) ?? Color(colorHex) ?? .blue }
+        return Color(colorHex) ?? .blue
     }
     
     public var durationInMinutes: Int {
@@ -65,5 +65,18 @@ public struct AppReminder: Identifiable, Hashable {
     public var listID: String
     public var colorHex: String
     public var priority: Int
-    public var displayColor: Color { Color(hex: colorHex) ?? .green }
+    
+    // FIXED: Removed 'hex:' label to match new extension
+    public var displayColor: Color { Color(colorHex) ?? .green }
+}
+
+extension Color {
+    // FIXED: Changed to unlabeled to prevent target-conflict errors
+    init?(_ hex: String) {
+        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if hexSanitized.hasPrefix("#") { hexSanitized.remove(at: hexSanitized.startIndex) }
+        var rgb: UInt64 = 0
+        guard Scanner(string: hexSanitized).scanHexInt64(&rgb) else { return nil }
+        self.init(red: Double((rgb & 0xFF0000) >> 16) / 255.0, green: Double((rgb & 0x00FF00) >> 8) / 255.0, blue: Double(rgb & 0x0000FF) / 255.0)
+    }
 }
