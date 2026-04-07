@@ -43,6 +43,19 @@ public class CalendarViewModel: ObservableObject {
     public let eventKitManager = EventKitManager()
     public var currentViewRange: (start: Date, end: Date)
 
+    public var filteredReminders: [AppReminder] {
+        if searchText.isEmpty { return reminders }
+        return reminders.filter { $0.title.localizedCaseInsensitiveContains(searchText) || ($0.notes?.localizedCaseInsensitiveContains(searchText) ?? false) }
+    }
+
+    public var dateRangeArray: [Date] {
+        var dates: [Date] = []
+        var current = Foundation.Calendar.current.startOfDay(for: anchorDate)
+        let end = Foundation.Calendar.current.date(byAdding: .day, value: 60, to: current)!
+        while current <= end { dates.append(current); current = Foundation.Calendar.current.date(byAdding: .day, value: 1, to: current)! }
+        return dates
+    }
+
     public init() {
         let cal = Foundation.Calendar.current
         self.currentViewRange = (cal.date(byAdding: .month, value: -3, to: Date())!, cal.date(byAdding: .month, value: 6, to: Date())!)
@@ -52,10 +65,14 @@ public class CalendarViewModel: ObservableObject {
             .sink { [weak self] _ in Task { await self?.refreshData() } }.store(in: &cancellables)
             
         NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)
-            .sink { [weak self] _ in 
-                self?.objectWillChange.send()
-                Task { await self?.refreshData() } 
-            }.store(in: &cancellables)
+            .sink { [weak self] _ in self?.objectWillChange.send(); Task { await self?.refreshData() } }.store(in: &cancellables)
+    }
+
+    public func handleDeepLink(url: URL) {
+        guard url.scheme == "gitmonkcal", url.host == "event", let eventID = url.pathComponents.last else { return }
+        for eventList in groupedEvents.values {
+            if let target = eventList.first(where: { $0.id == eventID }) { self.editingEvent = target; return }
+        }
     }
 
     public func refreshData() async {
@@ -63,7 +80,6 @@ public class CalendarViewModel: ObservableObject {
         isLoading = true
         let targetCals = availableCalendars.filter { visibleCalendarIDs.contains($0.calendarIdentifier) }
         let targetLists = availableReminderLists.filter { visibleReminderListIDs.contains($0.calendarIdentifier) }
-        
         do {
             let events = try await eventKitManager.fetchEvents(from: currentViewRange.start, to: currentViewRange.end, in: targetCals)
             let rawReminders = try await eventKitManager.fetchReminders(in: targetLists)
@@ -81,26 +97,6 @@ public class CalendarViewModel: ObservableObject {
             self.groupedEvents = dict; self.reminders = rawReminders
         } catch { print("gitMonk sync error") }
         isLoading = false
-    }
-
-    public func handleDeepLink(url: URL) {
-        guard url.scheme == "gitmonkcal", url.host == "event", let eventID = url.pathComponents.last else { return }
-        for eventList in groupedEvents.values {
-            if let target = eventList.first(where: { $0.id == eventID }) { self.editingEvent = target; return }
-        }
-    }
-
-    public var filteredReminders: [AppReminder] {
-        if searchText.isEmpty { return reminders }
-        return reminders.filter { $0.title.localizedCaseInsensitiveContains(searchText) || ($0.notes?.localizedCaseInsensitiveContains(searchText) ?? false) }
-    }
-
-    public var dateRangeArray: [Date] {
-        var dates: [Date] = []
-        var current = Foundation.Calendar.current.startOfDay(for: anchorDate)
-        let end = Foundation.Calendar.current.date(byAdding: .day, value: 60, to: current)!
-        while current <= end { dates.append(current); current = Foundation.Calendar.current.date(byAdding: .day, value: 1, to: current)! }
-        return dates
     }
 
     public func requestAccessAndFetch() async {
@@ -129,33 +125,10 @@ public class CalendarViewModel: ObservableObject {
         if visibleCalendarIDs.contains(calendarID) { visibleCalendarIDs.remove(calendarID) } else { visibleCalendarIDs.insert(calendarID) }
         await refreshData()
     }
-
+    
     public func toggleReminderListVisibility(listID: String) async {
         if visibleReminderListIDs.contains(listID) { visibleReminderListIDs.remove(listID) } else { visibleReminderListIDs.insert(listID) }
         await refreshData()
-    }
-
-    public func updateSettings(hideTasks: Bool, duration: Int, themeHex: String, firstDay: Int, density: Bool) {
-        hideCompletedTasks = hideTasks; defaultDuration = duration; themeColorHex = themeHex; firstDayOfWeek = firstDay; isHighDensity = density
-        let d = UserDefaults.standard
-        d.set(hideTasks, forKey: "hideCompletedTasks"); d.set(duration, forKey: "defaultDuration")
-        d.set(themeHex, forKey: "themeColorHex"); d.set(firstDay, forKey: "firstDayOfWeek"); d.set(density, forKey: "isHighDensity")
-    }
-
-    public func saveLocation(_ loc: String) { guard !loc.isEmpty else { return }; var cur = recentLocations; cur.removeAll { $0 == loc }; cur.insert(loc, at: 0); recentLocations = Array(cur.prefix(5)); UserDefaults.standard.set(recentLocations, forKey: "recent_locations") }
-    public func saveTemplate(_ temp: EventTemplate) { templates.append(temp); if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") } }
-    public func deleteTemplate(at offsets: IndexSet) { templates.remove(atOffsets: offsets); if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") } }
-    public func addToSearchHistory(_ term: String) { guard !term.isEmpty else { return }; var cur = searchHistory; cur.removeAll { $0 == term }; cur.insert(term, at: 0); searchHistory = Array(cur.prefix(3)); UserDefaults.standard.set(searchHistory, forKey: "search_history") }
-    
-    public func moveItemToTomorrow(_ item: UnifiedAgendaItem) {
-        let tomorrow = Foundation.Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-        Task {
-            switch item {
-            case .event(let e): try? await eventKitManager.saveEvent(id: nil, title: e.title, start: tomorrow, end: tomorrow.addingTimeInterval(3600), isAllDay: e.isAllDay, location: e.location, notes: e.notes, calendarID: e.calendarID, alarms: e.alarms, recurrenceType: e.recurrence, customColorHex: e.customColorHex)
-            case .task(let t): try? await eventKitManager.saveTask(id: nil, title: t.title, dueDate: tomorrow, notes: t.notes, listID: t.listID, priority: t.priority)
-            }
-            await refreshData()
-        }
     }
 
     private func loadPreferences() {
@@ -171,5 +144,33 @@ public class CalendarViewModel: ObservableObject {
         coreHourStart = d.integer(forKey: "coreHourStart") == 0 ? 8 : d.integer(forKey: "coreHourStart")
         coreHourEnd = d.integer(forKey: "coreHourEnd") == 0 ? 18 : d.integer(forKey: "coreHourEnd")
         if let data = d.data(forKey: "saved_templates"), let decoded = try? JSONDecoder().decode([EventTemplate].self, from: data) { templates = decoded }
+    }
+
+    public func updateSettings(hideTasks: Bool, duration: Int, themeHex: String, firstDay: Int, density: Bool) {
+        hideCompletedTasks = hideTasks; defaultDuration = duration; themeColorHex = themeHex; firstDayOfWeek = firstDay; isHighDensity = density
+        let d = UserDefaults.standard
+        d.set(hideTasks, forKey: "hideCompletedTasks"); d.set(duration, forKey: "defaultDuration")
+        d.set(themeHex, forKey: "themeColorHex"); d.set(firstDay, forKey: "firstDayOfWeek"); d.set(density, forKey: "isHighDensity")
+    }
+
+    public func updateCoreHours(start: Int, end: Int) {
+        coreHourStart = max(0, min(23, start)); coreHourEnd = max(coreHourStart + 1, min(24, end))
+        UserDefaults.standard.set(coreHourStart, forKey: "coreHourStart"); UserDefaults.standard.set(coreHourEnd, forKey: "coreHourEnd")
+    }
+    
+    public func saveLocation(_ loc: String) { guard !loc.isEmpty else { return }; var cur = recentLocations; cur.removeAll { $0 == loc }; cur.insert(loc, at: 0); recentLocations = Array(cur.prefix(5)); UserDefaults.standard.set(recentLocations, forKey: "recent_locations") }
+    public func saveTemplate(_ temp: EventTemplate) { templates.append(temp); if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") } }
+    public func deleteTemplate(at offsets: IndexSet) { templates.remove(atOffsets: offsets); if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") } }
+    public func addToSearchHistory(_ term: String) { guard !term.isEmpty else { return }; var cur = searchHistory; cur.removeAll { $0 == term }; cur.insert(term, at: 0); searchHistory = Array(cur.prefix(3)); UserDefaults.standard.set(searchHistory, forKey: "search_history") }
+    
+    public func moveItemToTomorrow(_ item: UnifiedAgendaItem) {
+        let tomorrow = Foundation.Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        Task {
+            switch item {
+            case .event(let e): try? await eventKitManager.saveEvent(id: nil, title: e.title, start: tomorrow, end: tomorrow.addingTimeInterval(3600), isAllDay: e.isAllDay, location: e.location, notes: e.notes, calendarID: e.calendarID, alarms: e.alarms, recurrenceType: e.recurrence, customColorHex: e.customColorHex)
+            case .task(let t): try? await eventKitManager.saveTask(id: nil, title: t.title, dueDate: tomorrow, notes: t.notes, listID: t.listID, priority: t.priority)
+            }
+            await refreshData()
+        }
     }
 }
