@@ -71,16 +71,24 @@ public class EventKitManager: ObservableObject {
     }
 
     nonisolated public static func mapToAppEvent(_ ek: EKEvent) -> AppEvent {
-        AppEvent(id: ek.eventIdentifier, title: ek.title ?? "Untitled", startDate: ek.startDate, endDate: ek.endDate, isAllDay: ek.isAllDay, location: ek.location, notes: ek.notes, hasAlarms: ek.hasAlarms, source: .eventKit, calendarID: ek.calendar.calendarIdentifier, colorHex: ek.calendar.cgColor.toHexString() ?? "#007AFF")
+        // FIXED: Protects user alarms and recurrence rules from being dropped
+        let alarmOffsets = ek.alarms?.map { $0.relativeOffset } ?? []
+        var rec: RecurrenceType = .none
+        if let rules = ek.recurrenceRules, let first = rules.first {
+            switch first.frequency {
+            case .daily: rec = .daily; case .weekly: rec = .weekly; case .monthly: rec = .monthly; case .yearly: rec = .yearly
+            @unknown default: rec = .none
+            }
+        }
+        
+        return AppEvent(id: ek.eventIdentifier, title: ek.title ?? "Untitled", startDate: ek.startDate, endDate: ek.endDate, isAllDay: ek.isAllDay, location: ek.location, notes: ek.notes, alarms: alarmOffsets, recurrence: rec, source: .eventKit, calendarID: ek.calendar.calendarIdentifier, colorHex: ek.calendar.cgColor.toHexString() ?? "#007AFF")
     }
     
     nonisolated public static func mapToAppReminder(_ ek: EKReminder) -> AppReminder {
         AppReminder(id: ek.calendarItemIdentifier, title: ek.title ?? "Task", dueDate: ek.dueDateComponents?.date, isCompleted: ek.isCompleted, listID: ek.calendar.calendarIdentifier, colorHex: ek.calendar.cgColor.toHexString() ?? "#34C759")
     }
 
-    // CREATE / UPDATE
     public func saveEvent(id: String? = nil, title: String, start: Date, end: Date, isAllDay: Bool, location: String?, notes: String?, calendarID: String, alarms: [TimeInterval], recurrenceType: RecurrenceType) async throws {
-        // Fetch existing or create new
         let event = (id != nil ? store.event(withIdentifier: id!) : nil) ?? EKEvent(eventStore: store)
         
         event.title = title; event.startDate = start; event.endDate = end; event.isAllDay = isAllDay
@@ -105,9 +113,7 @@ public class EventKitManager: ObservableObject {
     }
     
     public func saveTask(id: String? = nil, title: String, dueDate: Date, notes: String?, listID: String) async throws {
-        // Fetch existing or create new
         let task = (id != nil ? store.calendarItem(withIdentifier: id!) as? EKReminder : nil) ?? EKReminder(eventStore: store)
-        
         task.title = title; task.notes = notes
         task.calendar = store.calendar(withIdentifier: listID) ?? store.defaultCalendarForNewReminders()
         task.dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
@@ -126,12 +132,5 @@ public class EventKitManager: ObservableObject {
     
     public func deleteTask(identifier: String) throws {
         if let task = store.calendarItem(withIdentifier: identifier) as? EKReminder { try store.remove(task, commit: true) }
-    }
-}
-
-extension CGColor {
-    func toHexString() -> String? {
-        guard let c = self.components, c.count >= 3 else { return nil }
-        return String(format: "#%02lX%02lX%02lX", lroundf(Float(c[0])*255), lroundf(Float(c[1])*255), lroundf(Float(c[2])*255))
     }
 }
