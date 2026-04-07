@@ -7,7 +7,6 @@ struct MonthView: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
 
     private var monthDays: [Date] {
-        // FIXED: Using Foundation prefix to avoid module namespace collision
         var calendar = Foundation.Calendar.current
         calendar.firstWeekday = viewModel.firstDayOfWeek
         let components = calendar.dateComponents([.year, .month], from: viewModel.anchorDate)
@@ -86,6 +85,9 @@ struct MonthDayCell: View {
                 Text(event.title).font(.system(size: viewModel.isHighDensity ? 7 : 9, weight: .bold)).lineLimit(1)
                     .padding(.horizontal, 2).frame(maxWidth: .infinity, alignment: .leading).background(event.displayColor.opacity(opacity)).foregroundColor(event.displayColor).cornerRadius(2)
                     .onTapGesture { viewModel.editingEvent = event }
+                    .contextMenu {
+                        Button { viewModel.moveItemToTomorrow(.event(event)) } label: { Label("Move to Tomorrow", systemImage: "arrow.right.circle") }
+                    }
             }
             Spacer(minLength: 0)
         }
