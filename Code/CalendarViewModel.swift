@@ -19,21 +19,21 @@ public class CalendarViewModel: ObservableObject {
     @Published public var selectedView: String = "month"
     @Published public var daysToDisplay: Int = 7
     
-    // UI Routing & Pro Features State
     @Published public var isAddingNew: Bool = false
     @Published public var targetDateForNewItem: Date? = nil
     @Published public var editingEvent: AppEvent? = nil
     @Published public var editingTask: AppReminder? = nil
-    @Published public var eventToDuplicate: AppEvent? = nil // Feature: Duplication
-    @Published public var showDatePicker: Bool = false      // Feature: Jump to Date
+    @Published public var eventToDuplicate: AppEvent? = nil
+    @Published public var showDatePicker: Bool = false
     
     // Global Settings
     @Published public var coreHourStart: Int = 8
     @Published public var coreHourEnd: Int = 18
     @Published public var eventOpacity: Double = 0.2
-    @Published public var themeColorHex: String = "#007AFF" // Feature: Global Theme
-    @Published public var hideCompletedTasks: Bool = false  // Feature: Hide Tasks
-    @Published public var defaultDuration: Int = 60         // Feature: Default Duration
+    @Published public var themeColorHex: String = "#007AFF"
+    @Published public var hideCompletedTasks: Bool = false
+    @Published public var defaultDuration: Int = 60
+    @Published public var firstDayOfWeek: Int = 1 // NEW: 1 = Sun, 2 = Mon
 
     public var currentViewRange: (start: Date, end: Date)
     public let eventKitManager: EventKitManager
@@ -112,6 +112,11 @@ public class CalendarViewModel: ObservableObject {
         do { try eventKitManager.deleteTask(identifier: task.id); Task { await refreshData() } } catch { print("Delete failed") }
     }
     
+    // NEW: Jump to Today Routing
+    public func jumpToToday() {
+        anchorDate = Date()
+    }
+    
     public var dateRangeArray: [Date] {
         var dates: [Date] = []
         var current = Calendar.current.startOfDay(for: anchorDate)
@@ -128,6 +133,7 @@ public class CalendarViewModel: ObservableObject {
         themeColorHex = d.string(forKey: "themeColorHex") ?? "#007AFF"
         hideCompletedTasks = d.bool(forKey: "hideCompletedTasks")
         defaultDuration = d.integer(forKey: "defaultDuration") == 0 ? 60 : d.integer(forKey: "defaultDuration")
+        firstDayOfWeek = d.integer(forKey: "firstDayOfWeek") == 0 ? 1 : d.integer(forKey: "firstDayOfWeek")
     }
 
     public func updateCoreHours(start: Int, end: Int) {
@@ -135,10 +141,11 @@ public class CalendarViewModel: ObservableObject {
         UserDefaults.standard.set(coreHourStart, forKey: "coreHourStart"); UserDefaults.standard.set(coreHourEnd, forKey: "coreHourEnd")
     }
     
-    public func updateSettings(hideTasks: Bool, duration: Int, themeHex: String) {
-        hideCompletedTasks = hideTasks; defaultDuration = duration; themeColorHex = themeHex
+    public func updateSettings(hideTasks: Bool, duration: Int, themeHex: String, firstDay: Int) {
+        hideCompletedTasks = hideTasks; defaultDuration = duration; themeColorHex = themeHex; firstDayOfWeek = firstDay
         UserDefaults.standard.set(hideTasks, forKey: "hideCompletedTasks")
         UserDefaults.standard.set(duration, forKey: "defaultDuration")
         UserDefaults.standard.set(themeHex, forKey: "themeColorHex")
+        UserDefaults.standard.set(firstDay, forKey: "firstDayOfWeek")
     }
 }
