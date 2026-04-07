@@ -23,6 +23,8 @@ struct TasksView: View {
                     RoundedRectangle(cornerRadius: 2).fill(reminder.displayColor).frame(width: 4)
                 }
                 .padding(.vertical, 2)
+                .contentShape(Rectangle())
+                .onTapGesture { viewModel.editingTask = reminder }
             }
         }
         .listStyle(.plain)
