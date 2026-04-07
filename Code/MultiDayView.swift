@@ -3,6 +3,7 @@ import SwiftUI
 struct MultiDayView: View {
     @ObservedObject var viewModel: CalendarViewModel
     @State private var scrollOffset: CGFloat = 0
+    private let haptic = UIImpactFeedbackGenerator(style: .light)
 
     var body: some View {
         GeometryReader { geometry in
@@ -15,14 +16,14 @@ struct MultiDayView: View {
                             let events = viewModel.groupedEvents[date]?.filter {
                                 viewModel.searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(viewModel.searchText)
                             } ?? []
-                            DayColumn(date: date, events: events, width: columnWidth)
+                            DayColumn(date: date, events: events, width: columnWidth, opacity: viewModel.eventOpacity)
                         }
                     }
                     .scrollTargetLayout()
                 }
                 .scrollTargetBehavior(.viewAligned)
 
-                // BOTTOM SLIDER
+                // THE BC2 SLIDER
                 VStack(spacing: 0) {
                     Divider()
                     HStack(spacing: 15) {
@@ -33,7 +34,7 @@ struct MultiDayView: View {
                         
                         Slider(value: Binding(
                             get: { Double(viewModel.daysToDisplay) },
-                            set: { viewModel.daysToDisplay = Int($0) }
+                            set: { viewModel.daysToDisplay = Int($0); haptic.impactOccurred() }
                         ), in: 1...14, step: 1)
                     }
                     .padding(.horizontal, DesignSystem.Layout.screenEdge)
@@ -50,18 +51,17 @@ struct DayColumn: View {
     let date: Date
     let events: [AppEvent]
     let width: CGFloat
+    let opacity: Double
 
     var body: some View {
         VStack(spacing: 0) {
-            Text(date.formatted(.dateTime.weekday(.abbreviated)))
-                .font(.caption).bold()
-            Text(date.formatted(.dateTime.day()))
-                .font(.caption2)
+            Text(date.formatted(.dateTime.weekday(.abbreviated))).font(.caption).bold()
+            Text(date.formatted(.dateTime.day())).font(.caption2)
             Divider().padding(.vertical, 4)
             
             ZStack(alignment: .top) {
                 ForEach(events) { event in
-                    TimelineEventPill(event: event, columnWidth: width)
+                    TimelineEventPill(event: event, columnWidth: width, opacity: opacity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -74,6 +74,7 @@ struct DayColumn: View {
 struct TimelineEventPill: View {
     let event: AppEvent
     let columnWidth: CGFloat
+    let opacity: Double
 
     var body: some View {
         if !event.isAllDay {
@@ -88,7 +89,7 @@ struct TimelineEventPill: View {
             }
             .padding(4)
             .frame(width: columnWidth - 4, height: height, alignment: .topLeading)
-            .background(event.displayColor.opacity(0.2))
+            .background(event.displayColor.opacity(opacity))
             .foregroundColor(event.displayColor)
             .cornerRadius(DesignSystem.Aesthetics.pillRadius)
             .offset(y: topOffset)
