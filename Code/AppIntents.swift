@@ -1,6 +1,7 @@
 import AppIntents
 import EventKit
 import SwiftUI
+import Foundation
 
 public struct CalendarShortcuts: AppShortcutsProvider {
     @AppShortcutsBuilder
@@ -35,12 +36,12 @@ public struct CreateEventIntent: AppIntent {
             
             try await manager.saveEvent(
                 id: nil, title: title, start: startDate, end: endDate,
-                isAllDay: false, location: nil, notes: "Created via Shortcuts",
+                isAllDay: false, location: nil, notes: "Created via gitMonk Interactive Siri",
                 calendarID: defaultCalID, alarms: [], recurrenceType: .none
             )
             return .result(dialog: "Added \(title) to your calendar by gitMonk Interactive.")
         } catch {
-            return .result(dialog: "Failed to access calendar.")
+            return .result(dialog: "Failed to access calendar. Please check gitMonk Interactive permissions.")
         }
     }
 }
