@@ -19,8 +19,9 @@ public class CalendarViewModel: ObservableObject {
     @Published public var selectedView: String = "month"
     @Published public var daysToDisplay: Int = 7
     
-    // FIXED: Global UI Routing States for Creating/Editing
+    // UI Routing States
     @Published public var isAddingNew: Bool = false
+    @Published public var targetDateForNewItem: Date? = nil // NEW: Contextual Tap-to-Add
     @Published public var editingEvent: AppEvent? = nil
     @Published public var editingTask: AppReminder? = nil
     
