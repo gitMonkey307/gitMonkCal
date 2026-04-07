@@ -3,19 +3,13 @@ import SwiftUI
 import Combine
 import EventKit
 
-public enum RecurrenceType: String, CaseIterable, Identifiable {
-    case none, daily, weekly, monthly, yearly
-    public var id: String { rawValue }
-    public var displayName: String { rawValue.capitalized }
-}
-
 @MainActor
 public class CalendarViewModel: ObservableObject {
     @Published public var groupedEvents: [Date: [AppEvent]] = [:]
     @Published public var reminders: [AppReminder] = []
     
     @Published public var availableCalendars: [EKCalendar] = []
-    @Published public var availableReminderLists: [EKReminderCalendar] = []
+    @Published public var availableReminderLists: [EKCalendar] = []
     @Published public var visibleCalendarIDs: Set<String> = []
     @Published public var visibleReminderListIDs: Set<String> = []
     
