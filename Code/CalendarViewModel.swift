@@ -9,7 +9,7 @@ public class CalendarViewModel: ObservableObject {
     @Published public var reminders: [AppReminder] = []
     @Published public var templates: [EventTemplate] = []
     @Published public var searchHistory: [String] = []
-    @Published public var recentLocations: [String] = [] // FIXED: Restored property
+    @Published public var recentLocations: [String] = []
     
     @Published public var availableCalendars: [EKCalendar] = []
     @Published public var availableReminderLists: [EKCalendar] = []
@@ -21,7 +21,7 @@ public class CalendarViewModel: ObservableObject {
     @Published public var searchText: String = ""
     @Published public var selectedView: String = "month"
     @Published public var agendaFilter: String = "all"
-    @Published public var daysToDisplay: Int = 7 // FIXED: Restored property
+    @Published public var daysToDisplay: Int = 7
     
     @Published public var isAddingNew: Bool = false
     @Published public var targetDateForNewItem: Date? = nil
@@ -36,8 +36,8 @@ public class CalendarViewModel: ObservableObject {
     @Published public var firstDayOfWeek: Int = 1
     @Published public var eventOpacity: Double = 0.2
     @Published public var isHighDensity: Bool = false
-    @Published public var coreHourStart: Int = 8  // FIXED: Restored property
-    @Published public var coreHourEnd: Int = 18    // FIXED: Restored property
+    @Published public var coreHourStart: Int = 8
+    @Published public var coreHourEnd: Int = 18
 
     public var currentViewRange: (start: Date, end: Date)
     public let eventKitManager: EventKitManager
@@ -47,9 +47,18 @@ public class CalendarViewModel: ObservableObject {
         searchText.isEmpty ? reminders : reminders.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
     }
 
+    // FIXED: Restored dateRangeArray computed property
+    public var dateRangeArray: [Date] {
+        var dates: [Date] = []
+        var current = Foundation.Calendar.current.startOfDay(for: anchorDate)
+        let end = Foundation.Calendar.current.date(byAdding: .day, value: 60, to: current)!
+        while current <= end { dates.append(current); current = Foundation.Calendar.current.date(byAdding: .day, value: 1, to: current)! }
+        return dates
+    }
+
     public init(eventKitManager: EventKitManager? = nil) {
         self.eventKitManager = eventKitManager ?? EventKitManager()
-        let cal = Calendar.current
+        let cal = Foundation.Calendar.current
         self.currentViewRange = (cal.date(byAdding: .month, value: -3, to: Date())!, cal.date(byAdding: .month, value: 6, to: Date())!)
         loadPreferences()
         
@@ -57,7 +66,6 @@ public class CalendarViewModel: ObservableObject {
             .sink { [weak self] _ in Task { await self?.refreshData() } }.store(in: &cancellables)
     }
 
-    // FIXED: Restored saveLocation method
     public func saveLocation(_ loc: String) {
         guard !loc.isEmpty else { return }
         var current = recentLocations
@@ -77,7 +85,7 @@ public class CalendarViewModel: ObservableObject {
     }
 
     public func moveItemToTomorrow(_ item: UnifiedAgendaItem) {
-        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        let tomorrow = Foundation.Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
         Task {
             switch item {
             case .event(let e):
@@ -99,11 +107,11 @@ public class CalendarViewModel: ObservableObject {
             let rawReminders = try await eventKitManager.fetchReminders(in: targetLists)
             var dict: [Date: [AppEvent]] = [:]
             for e in events {
-                var currentDay = Calendar.current.startOfDay(for: e.startDate)
-                let endOfDay = Calendar.current.startOfDay(for: e.endDate)
+                var currentDay = Foundation.Calendar.current.startOfDay(for: e.startDate)
+                let endOfDay = Foundation.Calendar.current.startOfDay(for: e.endDate)
                 while currentDay <= endOfDay {
                     dict[currentDay, default: []].append(e)
-                    currentDay = Calendar.current.date(byAdding: .day, value: 1, to: currentDay)!
+                    currentDay = Foundation.Calendar.current.date(byAdding: .day, value: 1, to: currentDay)!
                 }
             }
             self.groupedEvents = dict
