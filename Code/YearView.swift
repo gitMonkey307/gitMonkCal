@@ -17,14 +17,26 @@ struct YearView: View {
     var body: some View {
         ScrollView {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 10) {
-                // Renamed tuple variables to prevent property access collisions
                 ForEach(months, id: \.0) { monthDate, eventCount in
+                    // Feature: Logarithmic Heatmap Scaling
+                    let heatOpacity = eventCount == 0 ? 0.05 : min(0.1 + (Double(eventCount) / 8.0), 0.9)
+                    
                     Rectangle()
-                        .fill(Color.blue.opacity(max(0.1, Double(eventCount) / 10.0)))
-                        // Added the required .dateTime prefix for the format style
-                        .overlay(Text(monthDate.formatted(.dateTime.month(.abbreviated))).foregroundColor(.white).bold())
+                        .fill(Color.blue.opacity(heatOpacity))
+                        .overlay(
+                            VStack(spacing: 2) {
+                                Text(monthDate.formatted(.dateTime.month(.abbreviated))).foregroundColor(.white).bold()
+                                if eventCount > 0 {
+                                    Text("\(eventCount)").font(.system(size: 10)).foregroundColor(.white.opacity(0.8))
+                                }
+                            }
+                        )
                         .frame(height: 100)
                         .cornerRadius(8)
+                        .onTapGesture {
+                            viewModel.anchorDate = monthDate
+                            viewModel.selectedView = "month"
+                        }
                 }
             }
             .padding()
