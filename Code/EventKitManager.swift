@@ -88,10 +88,20 @@ public class EventKitManager: ObservableObject {
     }
 
     public func saveEvent(id: String? = nil, title: String, start: Date, end: Date, isAllDay: Bool, location: String?, notes: String?, calendarID: String, alarms: [TimeInterval], recurrenceType: RecurrenceType) async throws {
-        let event = (id != nil ? store.event(withIdentifier: id!) : nil) ?? EKEvent(eventStore: store)
+        // FIXED: Cleaned up instantiation logic to prevent compiler AST timeout
+        let event: EKEvent
+        if let id = id, let existing = store.event(withIdentifier: id) {
+            event = existing
+        } else {
+            event = EKEvent(eventStore: store)
+        }
         
-        event.title = title; event.startDate = start; event.endDate = end; event.isAllDay = isAllDay
-        event.location = location; event.notes = notes
+        event.title = title
+        event.startDate = start
+        event.endDate = end
+        event.isAllDay = isAllDay
+        event.location = location
+        event.notes = notes
         event.calendar = store.calendar(withIdentifier: calendarID) ?? store.defaultCalendarForNewEvents
         
         if let existingAlarms = event.alarms { for a in existingAlarms { event.removeAlarm(a) } }
@@ -112,8 +122,16 @@ public class EventKitManager: ObservableObject {
     }
     
     public func saveTask(id: String? = nil, title: String, dueDate: Date, notes: String?, listID: String) async throws {
-        let task = (id != nil ? store.calendarItem(withIdentifier: id!) as? EKReminder : nil) ?? EKReminder(eventStore: store)
-        task.title = title; task.notes = notes
+        // FIXED: Cleaned up instantiation logic to prevent compiler AST timeout
+        let task: EKReminder
+        if let id = id, let existing = store.calendarItem(withIdentifier: id) as? EKReminder {
+            task = existing
+        } else {
+            task = EKReminder(eventStore: store)
+        }
+        
+        task.title = title
+        task.notes = notes
         task.calendar = store.calendar(withIdentifier: listID) ?? store.defaultCalendarForNewReminders()
         task.dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
         try store.save(task, commit: true)
@@ -134,7 +152,6 @@ public class EventKitManager: ObservableObject {
     }
 }
 
-// FIXED: Restored Color Hex string conversion logic
 extension CGColor {
     func toHexString() -> String? {
         guard let c = self.components, c.count >= 3 else { return nil }
