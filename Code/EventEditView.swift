@@ -20,64 +20,25 @@ public struct EventEditView: View {
     @State private var alarms: [TimeInterval] = []
     @State private var isSaving = false
 
+    // Extracts complex logic out of the View body
+    private var navTitle: String {
+        if eventToEdit != nil { return "Edit Event" }
+        if taskToEdit != nil { return "Edit Task" }
+        return isTask ? "New Task" : "New Event"
+    }
+
     public var body: some View {
         NavigationView {
             Form {
-                if eventToEdit == nil && taskToEdit == nil {
-                    Picker("Type", selection: $isTask) {
-                        Text("Event").tag(false)
-                        Text("Task").tag(true)
-                    }
-                    .pickerStyle(.segmented).padding(.vertical, 4)
-                }
-                
-                Section("Details") {
-                    TextField(isTask ? "Task Title" : "Event Title", text: $title).font(DesignSystem.Typography.header)
-                    if !isTask { TextField("Location", text: $location) }
-                }
-                
-                Section("Time") {
-                    if !isTask { Toggle("All-day", isOn: $isAllDay) }
-                    DatePicker(isTask ? "Due Date" : "Starts", selection: $startDate)
-                    if !isTask { DatePicker("Ends", selection: $endDate, in: startDate...) }
-                }
-                
-                if !isTask {
-                    Section("Recurrence & Alarms") {
-                        Picker("Repeat", selection: $recurrenceType) {
-                            ForEach(RecurrenceType.allCases) { Text($0.displayName).tag($0) }
-                        }
-                        Button("Add Alarm (15m before)") { alarms.append(-900) }
-                        ForEach(alarms, id: \.self) { offset in
-                            Text("\(Int(abs(offset)/60)) minutes before").foregroundColor(.secondary)
-                        }
-                    }
-                }
-                
-                Section(isTask ? "List" : "Calendar") {
-                    Picker("Select", selection: $selectedID) {
-                        if isTask {
-                            ForEach(viewModel.availableReminderLists, id: \.calendarIdentifier) { Text($0.title).tag($0.calendarIdentifier) }
-                        } else {
-                            ForEach(viewModel.availableCalendars, id: \.calendarIdentifier) { Text($0.title).tag($0.calendarIdentifier) }
-                        }
-                    }
-                }
-                
-                Section("Notes") { TextEditor(text: $notes).frame(minHeight: 100) }
-                
-                if eventToEdit != nil || taskToEdit != nil {
-                    Section {
-                        Button("Delete", role: .destructive) {
-                            if let e = eventToEdit { viewModel.deleteEvent(e) }
-                            if let t = taskToEdit { viewModel.deleteTask(t) }
-                            dismiss()
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                }
+                typeSection
+                detailsSection
+                timeSection
+                if !isTask { recurrenceSection }
+                calendarListSection
+                notesSection
+                deleteSection
             }
-            .navigationTitle(eventToEdit != nil ? "Edit Event" : (taskToEdit != nil ? "Edit Task" : (isTask ? "New Task" : "New Event")))
+            .navigationTitle(navTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -86,18 +47,105 @@ public struct EventEditView: View {
                         .fontWeight(.bold).disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
                 }
             }
-            .onAppear {
-                if let e = eventToEdit {
-                    // FIXED: Alarms and Recurrence are now properly loaded from existing events
-                    isTask = false; title = e.title; location = e.location ?? ""; isAllDay = e.isAllDay
-                    startDate = e.startDate; endDate = e.endDate; notes = e.notes ?? ""; selectedID = e.calendarID
-                    alarms = e.alarms; recurrenceType = e.recurrence
-                } else if let t = taskToEdit {
-                    isTask = true; title = t.title; startDate = t.dueDate ?? Date(); notes = t.notes ?? ""; selectedID = t.listID
+            .onAppear(perform: setupInitialState)
+        }
+    }
+    
+    // MARK: - Modular Form Components
+    @ViewBuilder
+    private var typeSection: some View {
+        if eventToEdit == nil && taskToEdit == nil {
+            Picker("Type", selection: $isTask) {
+                Text("Event").tag(false)
+                Text("Task").tag(true)
+            }
+            .pickerStyle(.segmented).padding(.vertical, 4)
+        }
+    }
+    
+    @ViewBuilder
+    private var detailsSection: some View {
+        Section("Details") {
+            TextField(isTask ? "Task Title" : "Event Title", text: $title).font(DesignSystem.Typography.header)
+            if !isTask { TextField("Location", text: $location) }
+        }
+    }
+    
+    @ViewBuilder
+    private var timeSection: some View {
+        Section("Time") {
+            if !isTask { Toggle("All-day", isOn: $isAllDay) }
+            DatePicker(isTask ? "Due Date" : "Starts", selection: $startDate)
+            if !isTask { DatePicker("Ends", selection: $endDate, in: startDate...) }
+        }
+    }
+    
+    @ViewBuilder
+    private var recurrenceSection: some View {
+        Section("Recurrence & Alarms") {
+            Picker("Repeat", selection: $recurrenceType) {
+                ForEach(RecurrenceType.allCases) { Text($0.displayName).tag($0) }
+            }
+            Button("Add Alarm (15m before)") { alarms.append(-900) }
+            ForEach(alarms, id: \.self) { offset in
+                Text("\(Int(abs(offset)/60)) minutes before").foregroundColor(.secondary)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var calendarListSection: some View {
+        Section(isTask ? "List" : "Calendar") {
+            Picker("Select", selection: $selectedID) {
+                if isTask {
+                    ForEach(viewModel.availableReminderLists, id: \.calendarIdentifier) { Text($0.title).tag($0.calendarIdentifier) }
                 } else {
-                    selectedID = isTask ? (viewModel.availableReminderLists.first?.calendarIdentifier ?? "") : (viewModel.availableCalendars.first?.calendarIdentifier ?? "")
+                    ForEach(viewModel.availableCalendars, id: \.calendarIdentifier) { Text($0.title).tag($0.calendarIdentifier) }
                 }
             }
+        }
+    }
+    
+    @ViewBuilder
+    private var notesSection: some View {
+        Section("Notes") { TextEditor(text: $notes).frame(minHeight: 100) }
+    }
+    
+    @ViewBuilder
+    private var deleteSection: some View {
+        if eventToEdit != nil || taskToEdit != nil {
+            Section {
+                Button("Delete", role: .destructive) {
+                    if let e = eventToEdit { viewModel.deleteEvent(e) }
+                    if let t = taskToEdit { viewModel.deleteTask(t) }
+                    dismiss()
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+        }
+    }
+    
+    // MARK: - Logic
+    private func setupInitialState() {
+        if let e = eventToEdit {
+            isTask = false
+            title = e.title
+            location = e.location ?? ""
+            isAllDay = e.isAllDay
+            startDate = e.startDate
+            endDate = e.endDate
+            notes = e.notes ?? ""
+            selectedID = e.calendarID
+            alarms = e.alarms
+            recurrenceType = e.recurrence
+        } else if let t = taskToEdit {
+            isTask = true
+            title = t.title
+            startDate = t.dueDate ?? Date()
+            notes = t.notes ?? ""
+            selectedID = t.listID
+        } else {
+            selectedID = isTask ? (viewModel.availableReminderLists.first?.calendarIdentifier ?? "") : (viewModel.availableCalendars.first?.calendarIdentifier ?? "")
         }
     }
     
