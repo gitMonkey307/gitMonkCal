@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct CalendarApp: App {
+struct gitMonkCalApp: App {
     @StateObject private var viewModel = CalendarViewModel()
 
     var body: some Scene {
@@ -9,8 +9,9 @@ struct CalendarApp: App {
             ContentView()
                 .environmentObject(viewModel)
                 .onOpenURL { url in
-                    // Logic from gitMonk Interactive: Hand-off from Widget
-                    viewModel.handleDeepLink(url: url)
+                    Task { @MainActor in
+                        viewModel.handleDeepLink(url: url)
+                    }
                 }
         }
     }
