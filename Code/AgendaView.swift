@@ -1,6 +1,5 @@
 import SwiftUI
 
-// STRICT TYPING: Encapsulates both types for a unified chronological list
 enum UnifiedAgendaItem: Identifiable {
     case event(AppEvent)
     case task(AppReminder)
@@ -32,12 +31,14 @@ struct AgendaView: View {
         }
         items.append(contentsOf: validEvents.map { .event($0) })
         
-        let validTasks = viewModel.reminders.filter {
-            !$0.isCompleted && (searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText))
+        let validTasks = viewModel.reminders.filter { task in
+            let matchSearch = searchText.isEmpty || task.title.localizedCaseInsensitiveContains(searchText)
+            // Feature: Hide Completed Tasks Filter
+            let matchCompletion = !task.isCompleted || !viewModel.hideCompletedTasks
+            return matchSearch && matchCompletion
         }
         items.append(contentsOf: validTasks.map { .task($0) })
         
-        // Sort chronologically regardless of type
         let sortedItems = items.sorted { $0.sortDate < $1.sortDate }
         return Array(sortedItems.prefix(100))
     }
@@ -45,57 +46,73 @@ struct AgendaView: View {
     var body: some View {
         List {
             ForEach(upcomingItems, id: \.id) { item in
-                switch item {
-                case .event(let event):
-                    eventRow(for: event)
-                case .task(let task):
-                    taskRow(for: task)
-                }
+                row(for: item)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) { delete(item: item) } label: { Label("Delete", systemImage: "trash") }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                        if case .task(let t) = item {
+                            Button { Task { await viewModel.toggleReminderCompleted(t) } } label: { Label("Complete", systemImage: "checkmark.circle.fill") }.tint(.green)
+                        }
+                    }
+                    // Feature: Event Duplication
+                    .contextMenu {
+                        if case .event(let e) = item {
+                            Button { viewModel.eventToDuplicate = e } label: { Label("Duplicate", systemImage: "doc.on.doc") }
+                        }
+                    }
             }
         }
         .listStyle(.plain)
         .refreshable { await viewModel.refreshData() }
     }
     
-    // MARK: - Row Components
     @ViewBuilder
-    private func eventRow(for event: AppEvent) -> some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Layout.densePadding) {
+    private func row(for item: UnifiedAgendaItem) -> some View {
+        switch item {
+        case .event(let event):
+            VStack(alignment: .leading, spacing: DesignSystem.Layout.densePadding) {
+                HStack(spacing: 6) {
+                    RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(event.title).font(DesignSystem.Typography.eventPill).lineLimit(1)
+                        Text(event.startDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
+                            .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+            }
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
+            .onTapGesture { viewModel.editingEvent = event }
+            
+        case .task(let task):
             HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
+                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(task.isCompleted ? .green : .secondary)
+                    .font(.title3)
+                    .onTapGesture { Task { await viewModel.toggleReminderCompleted(task) } }
+                
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(event.title).font(DesignSystem.Typography.eventPill).lineLimit(1)
-                    Text(event.startDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
-                        .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
+                    Text(task.title).font(DesignSystem.Typography.eventPill).strikethrough(task.isCompleted)
+                    if let dueDate = task.dueDate {
+                        Text(dueDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
+                            .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
+                    }
                 }
                 Spacer()
+                RoundedRectangle(cornerRadius: 2).fill(task.displayColor).frame(width: 4)
             }
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
+            .onTapGesture { viewModel.editingTask = task }
         }
-        .padding(.vertical, 2)
-        .contentShape(Rectangle())
-        .onTapGesture { viewModel.editingEvent = event }
     }
     
-    @ViewBuilder
-    private func taskRow(for task: AppReminder) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(task.isCompleted ? .green : .secondary)
-                .font(.title3)
-                .onTapGesture { Task { await viewModel.toggleReminderCompleted(task) } }
-            
-            VStack(alignment: .leading, spacing: 0) {
-                Text(task.title).font(DesignSystem.Typography.eventPill).strikethrough(task.isCompleted)
-                if let dueDate = task.dueDate {
-                    Text(dueDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
-                        .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
-                }
-            }
-            Spacer()
-            RoundedRectangle(cornerRadius: 2).fill(task.displayColor).frame(width: 4)
+    private func delete(item: UnifiedAgendaItem) {
+        switch item {
+        case .event(let e): viewModel.deleteEvent(e)
+        case .task(let t): viewModel.deleteTask(t)
         }
-        .padding(.vertical, 2)
-        .contentShape(Rectangle())
-        .onTapGesture { viewModel.editingTask = task }
     }
 }
