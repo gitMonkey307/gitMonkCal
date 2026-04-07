@@ -8,7 +8,7 @@ public class CalendarViewModel: ObservableObject {
     @Published public var groupedEvents: [Date: [AppEvent]] = [:]
     @Published public var reminders: [AppReminder] = []
     @Published public var templates: [EventTemplate] = []
-    @Published public var recentLocations: [String] = [] // Feature: Location History
+    @Published public var searchHistory: [String] = [] // Feature: Search History
     
     @Published public var availableCalendars: [EKCalendar] = []
     @Published public var availableReminderLists: [EKCalendar] = []
@@ -33,7 +33,7 @@ public class CalendarViewModel: ObservableObject {
     @Published public var defaultDuration: Int = 60
     @Published public var firstDayOfWeek: Int = 1
     @Published public var eventOpacity: Double = 0.2
-    @Published public var isHighDensity: Bool = false // Feature: Density Mode
+    @Published public var isHighDensity: Bool = false
 
     public var currentViewRange: (start: Date, end: Date)
     public let eventKitManager: EventKitManager
@@ -53,13 +53,27 @@ public class CalendarViewModel: ObservableObject {
             .sink { [weak self] _ in Task { await self?.refreshData() } }.store(in: &cancellables)
     }
 
-    public func saveLocation(_ loc: String) {
-        guard !loc.isEmpty else { return }
-        var current = recentLocations
-        current.removeAll { $0 == loc }
-        current.insert(loc, at: 0)
-        recentLocations = Array(current.prefix(5))
-        UserDefaults.standard.set(recentLocations, forKey: "recent_locations")
+    public func addToSearchHistory(_ term: String) {
+        guard !term.isEmpty else { return }
+        var current = searchHistory
+        current.removeAll { $0 == term }
+        current.insert(term, at: 0)
+        searchHistory = Array(current.prefix(3))
+        UserDefaults.standard.set(searchHistory, forKey: "search_history")
+    }
+
+    // Feature: Pro Move Triage
+    public func moveItemToTomorrow(_ item: UnifiedAgendaItem) {
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        Task {
+            switch item {
+            case .event(let e):
+                try? await eventKitManager.saveEvent(id: nil, title: e.title, start: tomorrow, end: tomorrow.addingTimeInterval(3600), isAllDay: e.isAllDay, location: e.location, notes: e.notes, calendarID: e.calendarID, alarms: e.alarms, recurrenceType: e.recurrence)
+            case .task(let t):
+                try? await eventKitManager.saveTask(id: nil, title: t.title, dueDate: tomorrow, notes: t.notes, listID: t.listID)
+            }
+            await refreshData()
+        }
     }
 
     public func refreshData() async {
@@ -67,7 +81,6 @@ public class CalendarViewModel: ObservableObject {
         isLoading = true
         let targetCals = availableCalendars.filter { visibleCalendarIDs.contains($0.calendarIdentifier) }
         let targetLists = availableReminderLists.filter { visibleReminderListIDs.contains($0.calendarIdentifier) }
-        
         do {
             let events = try await eventKitManager.fetchEvents(from: currentViewRange.start, to: currentViewRange.end, in: targetCals)
             let rawReminders = try await eventKitManager.fetchReminders(in: targetLists)
@@ -95,7 +108,7 @@ public class CalendarViewModel: ObservableObject {
             if visibleCalendarIDs.isEmpty { self.visibleCalendarIDs = Set(availableCalendars.map { $0.calendarIdentifier }) }
             if visibleReminderListIDs.isEmpty { self.visibleReminderListIDs = Set(availableReminderLists.map { $0.calendarIdentifier }) }
             await refreshData()
-        } catch { print("Auth Fail: \(error)") }
+        } catch { print(error) }
     }
 
     public func toggleReminderCompleted(_ reminder: AppReminder) async {
@@ -108,12 +121,17 @@ public class CalendarViewModel: ObservableObject {
     public func deleteTask(_ task: AppReminder) { try? eventKitManager.deleteTask(identifier: task.id); Task { await refreshData() } }
     public func jumpToToday() { anchorDate = Date() }
     
+    public func toggleCalendarVisibility(calendarID: String) async {
+        if visibleCalendarIDs.contains(calendarID) { visibleCalendarIDs.remove(calendarID) } else { visibleCalendarIDs.insert(calendarID) }
+        await refreshData()
+    }
+    
     private func loadPreferences() {
         let d = UserDefaults.standard
         themeColorHex = d.string(forKey: "themeColorHex") ?? "#007AFF"
         hideCompletedTasks = d.bool(forKey: "hideCompletedTasks")
         isHighDensity = d.bool(forKey: "isHighDensity")
-        recentLocations = d.stringArray(forKey: "recent_locations") ?? []
+        searchHistory = d.stringArray(forKey: "search_history") ?? []
         defaultDuration = d.integer(forKey: "defaultDuration") == 0 ? 60 : d.integer(forKey: "defaultDuration")
         firstDayOfWeek = d.integer(forKey: "firstDayOfWeek") == 0 ? 1 : d.integer(forKey: "firstDayOfWeek")
         eventOpacity = d.double(forKey: "eventOpacity") == 0 ? 0.2 : d.double(forKey: "eventOpacity")
@@ -127,8 +145,8 @@ public class CalendarViewModel: ObservableObject {
         d.set(themeHex, forKey: "themeColorHex"); d.set(firstDay, forKey: "firstDayOfWeek"); d.set(density, forKey: "isHighDensity")
     }
 
-    public func toggleCalendarVisibility(calendarID: String) async {
-        if visibleCalendarIDs.contains(calendarID) { visibleCalendarIDs.remove(calendarID) } else { visibleCalendarIDs.insert(calendarID) }
-        await refreshData()
+    public func updateCoreHours(start: Int, end: Int) {
+        coreHourStart = max(0, min(23, start)); coreHourEnd = max(coreHourStart + 1, min(24, end))
+        UserDefaults.standard.set(coreHourStart, forKey: "coreHourStart"); UserDefaults.standard.set(coreHourEnd, forKey: "coreHourEnd")
     }
 }
