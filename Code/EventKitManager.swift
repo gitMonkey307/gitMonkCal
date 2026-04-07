@@ -80,7 +80,6 @@ public class EventKitManager: ObservableObject {
             }
         }
         
-        // FIXED: Explicit variable extraction to prevent compiler AST timeout
         let safeTitle = ek.title ?? "Untitled"
         let safeHex = ek.calendar.cgColor.toHexString() ?? "#007AFF"
         
@@ -101,7 +100,6 @@ public class EventKitManager: ObservableObject {
     }
     
     nonisolated public static func mapToAppReminder(_ ek: EKReminder) -> AppReminder {
-        // FIXED: Extracted explicit variables and added ek.notes mapping
         let safeTitle = ek.title ?? "Task"
         let safeHex = ek.calendar.cgColor.toHexString() ?? "#34C759"
         
@@ -117,8 +115,9 @@ public class EventKitManager: ObservableObject {
     }
 
     public func saveEvent(id: String? = nil, title: String, start: Date, end: Date, isAllDay: Bool, location: String?, notes: String?, calendarID: String, alarms: [TimeInterval], recurrenceType: RecurrenceType) async throws {
+        // EXPLICIT INSTANTIATION: Eliminates compiler type-check timeout
         let event: EKEvent
-        if let id = id, let existing = store.event(withIdentifier: id) {
+        if let safeID = id, let existing = store.event(withIdentifier: safeID) {
             event = existing
         } else {
             event = EKEvent(eventStore: store)
@@ -150,8 +149,9 @@ public class EventKitManager: ObservableObject {
     }
     
     public func saveTask(id: String? = nil, title: String, dueDate: Date, notes: String?, listID: String) async throws {
+        // EXPLICIT INSTANTIATION: Eliminates compiler type-check timeout
         let task: EKReminder
-        if let id = id, let existing = store.calendarItem(withIdentifier: id) as? EKReminder {
+        if let safeID = id, let existing = store.calendarItem(withIdentifier: safeID) as? EKReminder {
             task = existing
         } else {
             task = EKReminder(eventStore: store)
@@ -179,6 +179,7 @@ public class EventKitManager: ObservableObject {
     }
 }
 
+// RESTORED: CGColor Hex String Converter
 extension CGColor {
     func toHexString() -> String? {
         guard let c = self.components, c.count >= 3 else { return nil }
