@@ -24,9 +24,10 @@ public struct AppEvent: Identifiable, Hashable, Codable {
     public var source: EventSource
     public var calendarID: String
     public var colorHex: String 
+    public var isBirthday: Bool
 
-    public init(id: String = UUID().uuidString, title: String, startDate: Date, endDate: Date, isAllDay: Bool = false, location: String? = nil, notes: String? = nil, alarms: [TimeInterval] = [], recurrence: RecurrenceType = .none, source: EventSource = .local, calendarID: String, colorHex: String = "#007AFF") {
-        self.id = id; self.title = title; self.startDate = startDate; self.endDate = endDate; self.isAllDay = isAllDay; self.location = location; self.notes = notes; self.alarms = alarms; self.recurrence = recurrence; self.source = source; self.calendarID = calendarID; self.colorHex = colorHex
+    public init(id: String = UUID().uuidString, title: String, startDate: Date, endDate: Date, isAllDay: Bool = false, location: String? = nil, notes: String? = nil, alarms: [TimeInterval] = [], recurrence: RecurrenceType = .none, source: EventSource = .local, calendarID: String, colorHex: String = "#007AFF", isBirthday: Bool = false) {
+        self.id = id; self.title = title; self.startDate = startDate; self.endDate = endDate; self.isAllDay = isAllDay; self.location = location; self.notes = notes; self.alarms = alarms; self.recurrence = recurrence; self.source = source; self.calendarID = calendarID; self.colorHex = colorHex; self.isBirthday = isBirthday
     }
 
     public var displayColor: Color { Color(hex: colorHex) ?? .blue }
@@ -41,10 +42,11 @@ public struct AppReminder: Identifiable, Hashable {
     public let id: String
     public var title: String
     public var dueDate: Date?
-    public var notes: String? // FIXED: Added notes property
+    public var notes: String?
     public var isCompleted: Bool
     public var listID: String
     public var colorHex: String
+    public var priority: Int // NEW: Task Priorities (0=None, 1-4=High, 5=Med, 6-9=Low)
     
     public var displayColor: Color { Color(hex: colorHex) ?? .green }
 }
