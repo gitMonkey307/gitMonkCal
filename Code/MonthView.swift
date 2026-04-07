@@ -34,7 +34,7 @@ struct MonthView: View {
                     let events = viewModel.groupedEvents[Calendar.current.startOfDay(for: date)]?.filter {
                         searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)
                     } ?? []
-                    MonthDayCell(date: date, events: events, opacity: viewModel.eventOpacity)
+                    MonthDayCell(date: date, events: events, opacity: viewModel.eventOpacity, viewModel: viewModel)
                 }
             }
             Spacer()
@@ -47,6 +47,7 @@ struct MonthDayCell: View {
     let date: Date
     let events: [AppEvent]
     let opacity: Double
+    @ObservedObject var viewModel: CalendarViewModel
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 1) {
@@ -67,6 +68,7 @@ struct MonthDayCell: View {
                     .background(event.displayColor.opacity(opacity))
                     .foregroundColor(event.displayColor)
                     .cornerRadius(2)
+                    .onTapGesture { viewModel.editingEvent = event }
             }
             Spacer(minLength: 0)
         }
