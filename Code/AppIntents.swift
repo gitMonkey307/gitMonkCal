@@ -2,7 +2,6 @@ import AppIntents
 import EventKit
 import SwiftUI
 
-// Feature: Siri & Shortcuts Integration
 public struct CalendarShortcuts: AppShortcutsProvider {
     @AppShortcutsBuilder
     public static var appShortcuts: [AppShortcut] {
@@ -31,7 +30,7 @@ public struct CreateEventIntent: AppIntent {
         let manager = EventKitManager()
         do {
             try await manager.requestCalendarAccess()
-            let endDate = startDate.addingTimeInterval(3600) // Default 1 hour via Siri
+            let endDate = startDate.addingTimeInterval(3600)
             let defaultCalID = manager.store.defaultCalendarForNewEvents?.calendarIdentifier ?? ""
             
             try await manager.saveEvent(
@@ -39,7 +38,7 @@ public struct CreateEventIntent: AppIntent {
                 isAllDay: false, location: nil, notes: "Created via Shortcuts",
                 calendarID: defaultCalID, alarms: [], recurrenceType: .none
             )
-            return .result(dialog: "Added \(title) to your calendar.")
+            return .result(dialog: "Added \(title) to your calendar by gitMonk Interactive.")
         } catch {
             return .result(dialog: "Failed to access calendar.")
         }
