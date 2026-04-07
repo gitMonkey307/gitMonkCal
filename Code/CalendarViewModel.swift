@@ -13,12 +13,13 @@ public class CalendarViewModel: ObservableObject {
     @Published public var visibleCalendarIDs: Set<String> = []
     @Published public var visibleReminderListIDs: Set<String> = []
     
-    // UI Routing State
     @Published public var isLoading: Bool = false
     @Published public var anchorDate: Date = Date()
     @Published public var searchText: String = ""
     @Published public var selectedView: String = "month"
     @Published public var daysToDisplay: Int = 7
+    
+    // FIXED: Global UI Routing States for Creating/Editing
     @Published public var isAddingNew: Bool = false
     @Published public var editingEvent: AppEvent? = nil
     @Published public var editingTask: AppReminder? = nil
@@ -26,7 +27,6 @@ public class CalendarViewModel: ObservableObject {
     @Published public var coreHourStart: Int = 8
     @Published public var coreHourEnd: Int = 18
     @Published public var eventOpacity: Double = 0.2
-    @Published public var themeColorHex: String = "#007AFF"
 
     public var currentViewRange: (start: Date, end: Date)
     public let eventKitManager: EventKitManager
@@ -36,7 +36,6 @@ public class CalendarViewModel: ObservableObject {
         self.eventKitManager = eventKitManager ?? EventKitManager()
         let cal = Calendar.current
         self.currentViewRange = (cal.date(byAdding: .month, value: -3, to: Date())!, cal.date(byAdding: .month, value: 6, to: Date())!)
-        
         loadPreferences()
         
         NotificationCenter.default.publisher(for: .EKEventStoreChanged)
