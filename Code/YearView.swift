@@ -20,7 +20,8 @@ struct YearView: View {
                 ForEach(months, id: \.0) { month, count in
                     Rectangle()
                         .fill(Color.blue.opacity(max(0.1, Double(count) / 10.0)))
-                        .overlay(Text(month.0.formatted(.month(.abbreviated))).foregroundColor(.white).bold())
+                        // Removed the .0 member to fix the format casting error
+                        .overlay(Text(month.formatted(.month(.abbreviated))).foregroundColor(.white).bold())
                         .frame(height: 100)
                         .cornerRadius(8)
                 }
