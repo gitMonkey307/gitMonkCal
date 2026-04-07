@@ -68,11 +68,17 @@ struct MonthDayCell: View {
                     .background(event.displayColor.opacity(opacity))
                     .foregroundColor(event.displayColor)
                     .cornerRadius(2)
-                    .onTapGesture { viewModel.editingEvent = event }
+                    .onTapGesture { viewModel.editingEvent = event } // Intercepts taps on pills
             }
             Spacer(minLength: 0)
         }
         .frame(minHeight: 80, maxHeight: .infinity, alignment: .top)
         .border(DesignSystem.Aesthetics.gridLine, width: 0.25)
+        .contentShape(Rectangle())
+        // NEW: Contextual Tap-to-Add for empty grid space
+        .onTapGesture {
+            viewModel.targetDateForNewItem = date
+            viewModel.isAddingNew = true
+        }
     }
 }
