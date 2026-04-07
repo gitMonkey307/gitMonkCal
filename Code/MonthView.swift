@@ -3,7 +3,6 @@ import SwiftUI
 struct MonthView: View {
     @ObservedObject var viewModel: CalendarViewModel
     let searchText: String
-
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
 
     private var monthDays: [Date] {
@@ -47,38 +46,53 @@ struct MonthDayCell: View {
     let date: Date; let events: [AppEvent]; let opacity: Double
     @ObservedObject var viewModel: CalendarViewModel
 
+    private var isWeekend: Bool {
+        let day = Calendar.current.component(.weekday, from: date)
+        return day == 1 || day == 7
+    }
+
     var body: some View {
         VStack(alignment: .trailing, spacing: 1) {
             HStack {
-                if isFirstDayOfDisplayWeek { Text("W\(currentWeekOfYear)").font(.system(size: 8, weight: .bold)).foregroundColor(.secondary.opacity(0.5)).padding(.leading, 2) }
+                var calendar = Calendar.current
+                calendar.firstWeekday = viewModel.firstDayOfWeek
+                if calendar.component(.weekday, from: date) == calendar.firstWeekday {
+                    Text("W\(calendar.component(.weekOfYear, from: date))").font(.system(size: 8, weight: .bold)).foregroundColor(.secondary.opacity(0.5)).padding(.leading, 2)
+                }
                 Spacer()
-                Text(date.formatted(.dateTime.day())).font(DesignSystem.Typography.monthDayNumber).foregroundColor(Calendar.current.isDateInToday(date) ? .white : .primary).padding(4).background(Calendar.current.isDateInToday(date) ? Color.blue : Color.clear).clipShape(Circle())
+                Text(date.formatted(.dateTime.day())).font(viewModel.isHighDensity ? .system(size: 9) : DesignSystem.Typography.monthDayNumber).foregroundColor(Calendar.current.isDateInToday(date) ? .white : .primary).padding(4).background(Calendar.current.isDateInToday(date) ? Color.blue : Color.clear).clipShape(Circle())
             }
             
-            // Feature: BC2 glanceable busy-dots
             HStack(spacing: 2) {
-                ForEach(events.prefix(4)) { event in
-                    Circle().fill(event.displayColor).frame(width: 4, height: 4)
-                }
-                if events.count > 4 { Text("+").font(.system(size: 6)).foregroundColor(.secondary) }
+                ForEach(events.prefix(4)) { event in Circle().fill(event.displayColor).frame(width: 3, height: 3) }
             }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 2)
+            .frame(maxWidth: .infinity, alignment: .center).padding(.top, 2)
 
-            ForEach(events.prefix(3)) { event in
+            ForEach(events.prefix(viewModel.isHighDensity ? 5 : 3)) { event in
                 HStack(spacing: 2) {
-                    if event.isBirthday { Text("🎁").font(.system(size: 8)) }
-                    Text(event.title).font(DesignSystem.Typography.eventPill).lineLimit(1)
+                    if event.isBirthday { Text("🎁").font(.system(size: 6)) }
+                    Text(event.title).font(.system(size: viewModel.isHighDensity ? 7 : 9, weight: .bold)).lineLimit(1)
                 }
                 .padding(.horizontal, 2).frame(maxWidth: .infinity, alignment: .leading).background(event.displayColor.opacity(opacity)).foregroundColor(event.displayColor).cornerRadius(2)
                 .onTapGesture { viewModel.editingEvent = event }
+                .contextMenu {
+                    Button { viewModel.eventToDuplicate = event } label: { Label("Duplicate", systemImage: "doc.on.doc") }
+                    // NEW: Copy to Today Action
+                    Button { copyToToday(event) } label: { Label("Move to Today", systemImage: "calendar.badge.plus") }
+                }
             }
             Spacer(minLength: 0)
         }
+        .background(isWeekend ? Color.secondary.opacity(0.05) : Color.clear) // Feature: Weekend Tinting
         .frame(minHeight: 80, maxHeight: .infinity, alignment: .top).border(DesignSystem.Aesthetics.gridLine, width: 0.25).contentShape(Rectangle())
         .onTapGesture { viewModel.targetDateForNewItem = date; viewModel.isAddingNew = true }
     }
 
-    private var isFirstDayOfDisplayWeek: Bool { var cal = Calendar.current; cal.firstWeekday = viewModel.firstDayOfWeek; return cal.component(.weekday, from: date) == cal.firstWeekday }
-    private var currentWeekOfYear: Int { var cal = Calendar.current; cal.firstWeekday = viewModel.firstDayOfWeek; return cal.component(.weekOfYear, from: date) }
+    private func copyToToday(_ event: AppEvent) {
+        Task {
+            let start = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) ?? Date()
+            try? await viewModel.eventKitManager.saveEvent(id: nil, title: event.title, start: start, end: start.addingTimeInterval(3600), isAllDay: false, location: event.location, notes: event.notes, calendarID: event.calendarID, alarms: [], recurrenceType: .none)
+            await viewModel.refreshData()
+        }
+    }
 }
