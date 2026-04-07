@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 import UIKit
 
-// gitMonk Interactive Shared Registry
+// gitMonk Interactive Standard Model Registry
 
 public enum EventSource: String, Codable {
     case eventKit, reminders, local
@@ -15,7 +15,6 @@ public enum UnifiedAgendaItem: Identifiable {
     public var sortDate: Date { switch self { case .event(let e): return e.startDate; case .task(let t): return t.dueDate ?? Date.distantFuture } }
 }
 
-// SHARED VIEW: FilterChipView
 public struct FilterChipView: View {
     public let title: String; public let id: String; @Binding public var selectedID: String
     public init(title: String, id: String, selectedID: Binding<String>) {
@@ -29,15 +28,13 @@ public struct FilterChipView: View {
     }
 }
 
-// SHARED VIEW: LiveTimeIndicator
 public struct LiveTimeIndicator: View {
     public let width: CGFloat
     @State private var now = Date()
     private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     public init(width: CGFloat) { self.width = width }
     private var offset: CGFloat {
-        let cal = Foundation.Calendar.current
-        let mins = Double(cal.component(.hour, from: now) * 60 + cal.component(.minute, from: now))
+        let mins = Double(Calendar.current.component(.hour, from: now) * 60 + Calendar.current.component(.minute, from: now))
         return CGFloat((mins / 60.0) * Double(DesignSystem.Layout.timelineHourHeight))
     }
     public var body: some View {
@@ -64,7 +61,7 @@ public struct AppEvent: Identifiable, Hashable, Codable {
         self.id = id; self.title = title; self.startDate = startDate; self.endDate = endDate; self.isAllDay = isAllDay; self.location = location; self.notes = notes; self.alarms = alarms; self.recurrence = recurrence; self.source = source; self.calendarID = calendarID; self.colorHex = colorHex; self.customColorHex = customColorHex; self.isBirthday = isBirthday
     }
     public var displayColor: Color { if let custom = customColorHex, let c = Color(custom) { return c }; return Color(colorHex) ?? .blue }
-    public var durationInMinutes: Int { (Foundation.Calendar.current.dateComponents([.minute], from: startDate, to: endDate)).minute ?? 0 }
+    public var durationInMinutes: Int { (Calendar.current.dateComponents([.minute], from: startDate, to: endDate)).minute ?? 0 }
     public func overlaps(with other: AppEvent) -> Bool { if isAllDay || other.isAllDay { return false }; return startDate < other.endDate && other.startDate < endDate }
 }
 
