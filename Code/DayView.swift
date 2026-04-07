@@ -24,30 +24,18 @@ struct DayView: View {
 
                 ScrollView {
                     ZStack(alignment: .top) {
-                        VStack(spacing: 0) {
-                            ForEach(0..<24) { hour in
-                                HStack {
-                                    Text(String(format: "%02d:00", hour))
-                                        .font(DesignSystem.Typography.timeLabel)
-                                        .frame(width: 50, alignment: .leading)
-                                        .padding(.leading, DesignSystem.Layout.densePadding)
-                                    Rectangle().fill(DesignSystem.Aesthetics.gridLine).frame(height: 0.5)
-                                }
-                                Rectangle().fill(Color.clear).frame(height: DesignSystem.Layout.timelineHourHeight)
-                            }
-                        }
-
+                        timelineGrid
                         ForEach(events) { event in
-                            let screenWidth = UIScreen.main.bounds.width
-                            let colWidth = screenWidth - 60.0
-                            
                             TimelineEventPill(
                                 event: event,
-                                columnWidth: colWidth,
+                                columnWidth: UIScreen.main.bounds.width - 60.0,
                                 opacity: viewModel.eventOpacity,
                                 viewModel: viewModel
                             )
                             .padding(.leading, 60)
+                        }
+                        if Calendar.current.isDateInToday(selectedDate) {
+                            LiveTimeIndicator(width: UIScreen.main.bounds.width - 60.0).padding(.leading, 60)
                         }
                     }
                 }
@@ -55,5 +43,20 @@ struct DayView: View {
         }
         .background(Color(uiColor: .systemBackground))
         .refreshable { await viewModel.refreshData() }
+    }
+
+    private var timelineGrid: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<24) { hour in
+                HStack {
+                    Text(String(format: "%02d:00", hour))
+                        .font(DesignSystem.Typography.timeLabel)
+                        .frame(width: 50, alignment: .leading)
+                        .padding(.leading, DesignSystem.Layout.densePadding)
+                    Rectangle().fill(DesignSystem.Aesthetics.gridLine).frame(height: 0.5)
+                }
+                Rectangle().fill(Color.clear).frame(height: DesignSystem.Layout.timelineHourHeight)
+            }
+        }
     }
 }
