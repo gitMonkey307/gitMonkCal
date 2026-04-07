@@ -6,12 +6,35 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            sidebarList
-                .navigationTitle("gitMonkCal")
+            // FIXED: Using selection binding to force detail view navigation
+            List(selection: $viewModel.selectedView) {
+                Section("Views") {
+                    SidebarItem(title: "Month", icon: "calendar", id: "month")
+                    SidebarItem(title: "Multi-Day", icon: "calendar.day.timeline.left", id: "week")
+                    SidebarItem(title: "Day", icon: "calendar.day.timeline.leading", id: "day")
+                    SidebarItem(title: "Agenda", icon: "list.bullet", id: "agenda")
+                    SidebarItem(title: "Tasks", icon: "checkmark.circle", id: "tasks")
+                    SidebarItem(title: "Year", icon: "calendar.circle", id: "year")
+                }
+                
+                Section("Calendars") {
+                    ForEach(viewModel.availableCalendars, id: \.calendarIdentifier) { cal in
+                        Toggle(cal.title, isOn: Binding(
+                            get: { viewModel.visibleCalendarIDs.contains(cal.calendarIdentifier) },
+                            set: { _ in Task { await viewModel.toggleCalendarVisibility(calendarID: cal.calendarIdentifier) } }
+                        ))
+                        .tint(Color(cgColor: cal.cgColor))
+                    }
+                }
+                
+                Section("Settings") {
+                    SidebarItem(title: "Preferences", icon: "gearshape", id: "settings")
+                }
+            }
+            .navigationTitle("gitMonkCal")
         } detail: {
             detailStack
         }
-        // FIXED: Using unlabeled initializer
         .tint(Color(viewModel.themeColorHex) ?? .blue)
         .sheet(isPresented: $viewModel.isAddingNew, onDismiss: { viewModel.targetDateForNewItem = nil }) {
             EventEditView(viewModel: viewModel, initialDate: viewModel.targetDateForNewItem)
@@ -33,37 +56,12 @@ struct ContentView: View {
         .task { await viewModel.requestAccessAndFetch() }
     }
     
-    private var sidebarList: some View {
-        List {
-            Section("Views") {
-                SidebarRow(title: "Month", icon: "calendar", id: "month", selected: $viewModel.selectedView)
-                SidebarRow(title: "Multi-Day", icon: "calendar.day.timeline.left", id: "week", selected: $viewModel.selectedView)
-                SidebarRow(title: "Day", icon: "calendar.day.timeline.leading", id: "day", selected: $viewModel.selectedView)
-                SidebarRow(title: "Agenda", icon: "list.bullet", id: "agenda", selected: $viewModel.selectedView)
-                SidebarRow(title: "Tasks", icon: "checkmark.circle", id: "tasks", selected: $viewModel.selectedView)
-                SidebarRow(title: "Year", icon: "calendar.circle", id: "year", selected: $viewModel.selectedView)
-            }
-            Section("Calendars") {
-                ForEach(viewModel.availableCalendars, id: \.calendarIdentifier) { cal in
-                    Toggle(cal.title, isOn: Binding(
-                        get: { viewModel.visibleCalendarIDs.contains(cal.calendarIdentifier) },
-                        set: { _ in Task { await viewModel.toggleCalendarVisibility(calendarID: cal.calendarIdentifier) } }
-                    ))
-                    .tint(Color(cgColor: cal.cgColor))
-                }
-            }
-            Section("Settings") {
-                SidebarRow(title: "Preferences", icon: "gearshape", id: "settings", selected: $viewModel.selectedView)
-            }
-        }
-    }
-    
     private var detailStack: some View {
         ZStack(alignment: .bottomTrailing) {
             mainContent
                 .searchable(text: $viewModel.searchText)
                 .onSubmit(of: .search) { viewModel.addToSearchHistory(viewModel.searchText) }
-                .navigationTitle(viewModel.selectedView.capitalized)
+                .navigationTitle(viewModel.selectedView?.capitalized ?? "Calendar")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItemGroup(placement: .topBarTrailing) {
@@ -80,6 +78,7 @@ struct ContentView: View {
     
     @ViewBuilder
     private var mainContent: some View {
+        // FIXED: Handles optional string for selection
         switch viewModel.selectedView {
         case "month": MonthView(viewModel: viewModel, searchText: viewModel.searchText)
         case "week": MultiDayView(viewModel: viewModel)
@@ -101,19 +100,17 @@ struct ContentView: View {
                 .font(.title2.bold())
                 .foregroundColor(.white)
                 .frame(width: 56, height: 56)
-                // FIXED: Removed 'hex:' label
                 .background(Circle().fill(Color(viewModel.themeColorHex) ?? .blue).shadow(radius: 4))
         }
         .padding(24)
     }
 }
 
-struct SidebarRow: View {
+// FIXED: Using Tag for standard selection behavior
+struct SidebarItem: View {
     let title: String; let icon: String; let id: String
-    @Binding var selected: String
     var body: some View {
-        Button(action: { selected = id }) {
-            Label(title, systemImage: icon).foregroundColor(selected == id ? .blue : .primary)
-        }
+        Label(title, systemImage: icon)
+            .tag(id) 
     }
 }
