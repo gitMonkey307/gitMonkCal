@@ -7,7 +7,8 @@ public struct EventEditView: View {
     
     var eventToEdit: AppEvent?
     var taskToEdit: AppReminder?
-    var initialDate: Date? // NEW: Supports Contextual creation
+    var initialDate: Date?
+    var eventToDuplicate: AppEvent? // Feature: Duplication Capture
     
     @State private var isTask: Bool = false
     @State private var title: String = ""
@@ -22,6 +23,7 @@ public struct EventEditView: View {
     @State private var isSaving = false
 
     private var navTitle: String {
+        if eventToDuplicate != nil { return "Duplicate Event" }
         if eventToEdit != nil { return "Edit Event" }
         if taskToEdit != nil { return "Edit Task" }
         return isTask ? "New Task" : "New Event"
@@ -40,7 +42,7 @@ public struct EventEditView: View {
                 if !isTask { recurrenceSection }
                 calendarListSection
                 notesSection
-                deleteSection
+                actionSection
             }
             .navigationTitle(navTitle)
             .navigationBarTitleDisplayMode(.inline)
@@ -58,7 +60,7 @@ public struct EventEditView: View {
     
     @ViewBuilder
     private var typeSection: some View {
-        if eventToEdit == nil && taskToEdit == nil {
+        if eventToEdit == nil && taskToEdit == nil && eventToDuplicate == nil {
             Picker("Type", selection: $isTask) {
                 Text("Event").tag(false)
                 Text("Task").tag(true)
@@ -116,9 +118,16 @@ public struct EventEditView: View {
     }
     
     @ViewBuilder
-    private var deleteSection: some View {
+    private var actionSection: some View {
         if eventToEdit != nil || taskToEdit != nil {
             Section {
+                // Feature: Native ShareLink Integration
+                if let e = eventToEdit {
+                    ShareLink(item: "Event: \(title)\nDate: \(startDate.formatted(.dateTime.month().day().year().hour().minute()))\nLocation: \(location.isEmpty ? "TBD" : location)") {
+                        Label("Share Event", systemImage: "square.and.arrow.up")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                }
                 Button("Delete", role: .destructive) {
                     if let e = eventToEdit { viewModel.deleteEvent(e) }
                     if let t = taskToEdit { viewModel.deleteTask(t) }
@@ -131,39 +140,33 @@ public struct EventEditView: View {
     
     private func setupInitialState() {
         if let e = eventToEdit {
-            isTask = false
-            title = e.title
-            location = e.location ?? ""
-            isAllDay = e.isAllDay
-            startDate = e.startDate
-            endDate = e.endDate
-            notes = e.notes ?? ""
-            selectedID = e.calendarID
-            alarms = e.alarms
-            recurrenceType = e.recurrence
+            isTask = false; title = e.title; location = e.location ?? ""; isAllDay = e.isAllDay
+            startDate = e.startDate; endDate = e.endDate; notes = e.notes ?? ""; selectedID = e.calendarID
+            alarms = e.alarms; recurrenceType = e.recurrence
+        } else if let dup = eventToDuplicate {
+            // Feature: Duplication Setup
+            isTask = false; title = dup.title + " (Copy)"; location = dup.location ?? ""; isAllDay = dup.isAllDay
+            startDate = dup.startDate; endDate = dup.endDate; notes = dup.notes ?? ""; selectedID = dup.calendarID
+            alarms = dup.alarms; recurrenceType = dup.recurrence
         } else if let t = taskToEdit {
-            isTask = true
-            title = t.title
-            startDate = t.dueDate ?? Date()
-            notes = t.notes ?? ""
-            selectedID = t.listID
+            isTask = true; title = t.title; startDate = t.dueDate ?? Date(); notes = t.notes ?? ""; selectedID = t.listID
         } else {
-            // Setup default lists
             if isTask {
                 selectedID = viewModel.availableReminderLists.first?.calendarIdentifier ?? ""
             } else {
                 selectedID = viewModel.availableCalendars.first?.calendarIdentifier ?? ""
             }
-            // Apply contextual Date routing if provided
             if let target = initialDate {
-                // Set default time to Noon for tapped days
                 if let noon = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: target) {
                     startDate = noon
-                    endDate = Calendar.current.date(byAdding: .hour, value: 1, to: noon) ?? noon
+                    // Feature: Apply custom default duration
+                    endDate = Calendar.current.date(byAdding: .minute, value: viewModel.defaultDuration, to: noon) ?? noon
                 } else {
-                    startDate = target
-                    endDate = target
+                    startDate = target; endDate = target
                 }
+            } else {
+                // Standard default duration fallback
+                endDate = Calendar.current.date(byAdding: .minute, value: viewModel.defaultDuration, to: startDate) ?? startDate
             }
         }
     }
@@ -174,6 +177,7 @@ public struct EventEditView: View {
             if isTask {
                 try await viewModel.eventKitManager.saveTask(id: taskToEdit?.id, title: title, dueDate: startDate, notes: notes, listID: selectedID)
             } else {
+                // If eventToDuplicate is present, id is deliberately nil so it saves as new
                 try await viewModel.eventKitManager.saveEvent(id: eventToEdit?.id, title: title, start: startDate, end: endDate, isAllDay: isAllDay, location: location, notes: notes, calendarID: selectedID, alarms: alarms, recurrenceType: recurrenceType)
             }
             await viewModel.refreshData()
