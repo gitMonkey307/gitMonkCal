@@ -8,7 +8,8 @@ public class CalendarViewModel: ObservableObject {
     @Published public var groupedEvents: [Date: [AppEvent]] = [:]
     @Published public var reminders: [AppReminder] = []
     @Published public var templates: [EventTemplate] = []
-    @Published public var searchHistory: [String] = [] // Feature: Search History
+    @Published public var searchHistory: [String] = []
+    @Published public var recentLocations: [String] = [] // FIXED: Restored property
     
     @Published public var availableCalendars: [EKCalendar] = []
     @Published public var availableReminderLists: [EKCalendar] = []
@@ -20,6 +21,7 @@ public class CalendarViewModel: ObservableObject {
     @Published public var searchText: String = ""
     @Published public var selectedView: String = "month"
     @Published public var agendaFilter: String = "all"
+    @Published public var daysToDisplay: Int = 7 // FIXED: Restored property
     
     @Published public var isAddingNew: Bool = false
     @Published public var targetDateForNewItem: Date? = nil
@@ -34,6 +36,8 @@ public class CalendarViewModel: ObservableObject {
     @Published public var firstDayOfWeek: Int = 1
     @Published public var eventOpacity: Double = 0.2
     @Published public var isHighDensity: Bool = false
+    @Published public var coreHourStart: Int = 8  // FIXED: Restored property
+    @Published public var coreHourEnd: Int = 18    // FIXED: Restored property
 
     public var currentViewRange: (start: Date, end: Date)
     public let eventKitManager: EventKitManager
@@ -53,6 +57,16 @@ public class CalendarViewModel: ObservableObject {
             .sink { [weak self] _ in Task { await self?.refreshData() } }.store(in: &cancellables)
     }
 
+    // FIXED: Restored saveLocation method
+    public func saveLocation(_ loc: String) {
+        guard !loc.isEmpty else { return }
+        var current = recentLocations
+        current.removeAll { $0 == loc }
+        current.insert(loc, at: 0)
+        recentLocations = Array(current.prefix(5))
+        UserDefaults.standard.set(recentLocations, forKey: "recent_locations")
+    }
+
     public func addToSearchHistory(_ term: String) {
         guard !term.isEmpty else { return }
         var current = searchHistory
@@ -62,7 +76,6 @@ public class CalendarViewModel: ObservableObject {
         UserDefaults.standard.set(searchHistory, forKey: "search_history")
     }
 
-    // Feature: Pro Move Triage
     public func moveItemToTomorrow(_ item: UnifiedAgendaItem) {
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
         Task {
@@ -132,9 +145,12 @@ public class CalendarViewModel: ObservableObject {
         hideCompletedTasks = d.bool(forKey: "hideCompletedTasks")
         isHighDensity = d.bool(forKey: "isHighDensity")
         searchHistory = d.stringArray(forKey: "search_history") ?? []
+        recentLocations = d.stringArray(forKey: "recent_locations") ?? []
         defaultDuration = d.integer(forKey: "defaultDuration") == 0 ? 60 : d.integer(forKey: "defaultDuration")
         firstDayOfWeek = d.integer(forKey: "firstDayOfWeek") == 0 ? 1 : d.integer(forKey: "firstDayOfWeek")
         eventOpacity = d.double(forKey: "eventOpacity") == 0 ? 0.2 : d.double(forKey: "eventOpacity")
+        coreHourStart = d.integer(forKey: "coreHourStart") == 0 ? 8 : d.integer(forKey: "coreHourStart")
+        coreHourEnd = d.integer(forKey: "coreHourEnd") == 0 ? 18 : d.integer(forKey: "coreHourEnd")
         if let data = d.data(forKey: "saved_templates"), let decoded = try? JSONDecoder().decode([EventTemplate].self, from: data) { templates = decoded }
     }
 
@@ -148,5 +164,15 @@ public class CalendarViewModel: ObservableObject {
     public func updateCoreHours(start: Int, end: Int) {
         coreHourStart = max(0, min(23, start)); coreHourEnd = max(coreHourStart + 1, min(24, end))
         UserDefaults.standard.set(coreHourStart, forKey: "coreHourStart"); UserDefaults.standard.set(coreHourEnd, forKey: "coreHourEnd")
+    }
+
+    public func deleteTemplate(at offsets: IndexSet) {
+        templates.remove(atOffsets: offsets)
+        if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") }
+    }
+    
+    public func saveTemplate(_ template: EventTemplate) {
+        templates.append(template)
+        if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") }
     }
 }
