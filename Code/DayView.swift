@@ -27,7 +27,8 @@ struct DayView: View {
                         VStack(spacing: 0) {
                             ForEach(0..<24) { hour in
                                 HStack {
-                                    Text("\(hour, specifier: "%02d"):00")
+                                    // Formatted string to ensure "09:00" format
+                                    Text(String(format: "%02d:00", hour))
                                         .font(DesignSystem.Typography.timeLabel)
                                         .frame(width: 50, alignment: .leading)
                                         .padding(.leading, DesignSystem.Layout.densePadding)
@@ -38,8 +39,13 @@ struct DayView: View {
                         }
 
                         ForEach(events) { event in
-                            TimelineEventPill(event: event, columnWidth: UIScreen.main.bounds.width - 60, opacity: viewModel.eventOpacity)
-                                .padding(.leading, 60)
+                            TimelineEventPill(
+                                event: event,
+                                columnWidth: UIScreen.main.bounds.width - 60,
+                                opacity: viewModel.eventOpacity,
+                                viewModel: viewModel // Connecting the edit router
+                            )
+                            .padding(.leading, 60)
                         }
                     }
                 }
