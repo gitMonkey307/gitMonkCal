@@ -1,5 +1,4 @@
 import SwiftUI
-import Foundation
 
 struct AgendaView: View {
     @ObservedObject var viewModel: CalendarViewModel
@@ -17,7 +16,7 @@ struct AgendaView: View {
             }
             items.append(contentsOf: validTasks.map { .task($0) })
         }
-        let grouped = Dictionary(grouping: items.sorted { $0.sortDate < $1.sortDate }) { Foundation.Calendar.current.startOfDay(for: $0.sortDate) }
+        let grouped = Dictionary(grouping: items.sorted { $0.sortDate < $1.sortDate }) { Calendar.current.startOfDay(for: $0.sortDate) }
         return grouped.sorted { $0.key < $1.key }
     }
 
@@ -49,7 +48,6 @@ struct AgendaView: View {
     }
 }
 
-// FIXED: Defined inside to ensure local scope visibility
 struct AgendaRowView: View {
     let item: UnifiedAgendaItem; @ObservedObject var viewModel: CalendarViewModel; let searchText: String
     var body: some View {
@@ -85,6 +83,5 @@ struct AgendaRowView: View {
         }
         .onTapGesture { viewModel.editingTask = task }
     }
-    
     private func delete() { switch item { case .event(let e): viewModel.deleteEvent(e); case .task(let t): viewModel.deleteTask(t) } }
 }
