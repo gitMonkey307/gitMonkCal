@@ -26,18 +26,22 @@ public class CalendarViewModel: ObservableObject {
     @Published public var eventToDuplicate: AppEvent? = nil
     @Published public var showDatePicker: Bool = false
     
-    // Global Settings
     @Published public var coreHourStart: Int = 8
     @Published public var coreHourEnd: Int = 18
     @Published public var eventOpacity: Double = 0.2
     @Published public var themeColorHex: String = "#007AFF"
     @Published public var hideCompletedTasks: Bool = false
     @Published public var defaultDuration: Int = 60
-    @Published public var firstDayOfWeek: Int = 1 // NEW: 1 = Sun, 2 = Mon
+    @Published public var firstDayOfWeek: Int = 1 
 
     public var currentViewRange: (start: Date, end: Date)
     public let eventKitManager: EventKitManager
     private var cancellables = Set<AnyCancellable>()
+
+    // FIXED: Restored filtered property for TasksView
+    public var filteredReminders: [AppReminder] {
+        searchText.isEmpty ? reminders : reminders.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
+    }
 
     public init(eventKitManager: EventKitManager? = nil) {
         self.eventKitManager = eventKitManager ?? EventKitManager()
@@ -101,7 +105,12 @@ public class CalendarViewModel: ObservableObject {
     }
     
     public func toggleReminderCompleted(_ reminder: AppReminder) async {
-        do { try await eventKitManager.toggleTaskCompletion(reminder); await refreshData() } catch { print(error) }
+        do { 
+            try await eventKitManager.toggleTaskCompletion(reminder)
+            let haptic = UINotificationFeedbackGenerator() // Feature: Completion Haptic
+            haptic.notificationOccurred(.success)
+            await refreshData() 
+        } catch { print(error) }
     }
     
     public func deleteEvent(_ event: AppEvent) {
@@ -112,10 +121,7 @@ public class CalendarViewModel: ObservableObject {
         do { try eventKitManager.deleteTask(identifier: task.id); Task { await refreshData() } } catch { print("Delete failed") }
     }
     
-    // NEW: Jump to Today Routing
-    public func jumpToToday() {
-        anchorDate = Date()
-    }
+    public func jumpToToday() { anchorDate = Date() }
     
     public var dateRangeArray: [Date] {
         var dates: [Date] = []
