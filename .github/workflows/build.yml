@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ main, master ]
 
-# Opt into Node.js 24 for all JavaScript actions in this workflow
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
@@ -16,26 +15,20 @@ jobs:
     runs-on: macos-14 
 
     steps:
-      # 1. Checkout Code using v5 (Node 24 Compatible)
       - name: Checkout Code
         uses: actions/checkout@v5
 
-      # 2. Select Xcode 16.x Version
       - name: Select Xcode Version
         run: |
           XCODE_PATH=$(ls -d /Applications/Xcode_16*.app | sort -V | tail -n 1)
-          echo "Selecting Xcode at $XCODE_PATH"
           sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
 
-      # 3. Install XcodeGen
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      # 4. Generate the gitMonkCal project
       - name: Generate Xcode Project
         run: xcodegen generate
 
-      # 5. Build the App and Widget
       - name: Build App
         run: |
           xcodebuild clean build \
@@ -50,12 +43,18 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES
 
-      # 6. Verify the Build Artifact
-      - name: Verify Build
+      # NEW: Package as a proper .ipa for Sideloadly/AltStore
+      - name: Package IPA
         run: |
-          if [ -d "build/Build/Products/Release-iphoneos/gitMonkCal.app" ]; then
-            echo "✅ gitMonkCal build successful on Node 24!"
-          else
-            echo "❌ Build artifact not found."
-            exit 1
-          fi
+          cd build/Build/Products/Release-iphoneos/
+          mkdir Payload
+          cp -r gitMonkCal.app Payload/
+          zip -r gitMonkCal.ipa Payload
+          rm -rf Payload
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitMonkCal-Phone-Build
+          path: build/Build/Products/Release-iphoneos/gitMonkCal.ipa
+          retention-days: 5
