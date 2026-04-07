@@ -9,10 +9,5 @@ A fully featured iOS-native clone of Android's Business Calendar 2, optimized fo
 - **Search/Filter**: Global search across events/tasks.
 - **Widgets**: Dense Agenda extension.
 - **Sync**: Native EventKit/Reminders, auto-refresh on changes.
-- **UI**: Edge-to-edge, 2pt micro-padding, NavigationSplitView sidebar.
 
 ## 🚀 Installation
-1. Commit code to GitHub.
-2. Let GitHub Actions (v2026 specs) compile the Xcode project.
-3. Download `gitMonkCal.ipa` from Artifacts.
-4. Install via SideStore.
