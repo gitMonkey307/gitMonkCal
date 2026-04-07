@@ -71,7 +71,6 @@ public class EventKitManager: ObservableObject {
     }
 
     nonisolated public static func mapToAppEvent(_ ek: EKEvent) -> AppEvent {
-        // FIXED: Protects user alarms and recurrence rules from being dropped
         let alarmOffsets = ek.alarms?.map { $0.relativeOffset } ?? []
         var rec: RecurrenceType = .none
         if let rules = ek.recurrenceRules, let first = rules.first {
@@ -132,5 +131,13 @@ public class EventKitManager: ObservableObject {
     
     public func deleteTask(identifier: String) throws {
         if let task = store.calendarItem(withIdentifier: identifier) as? EKReminder { try store.remove(task, commit: true) }
+    }
+}
+
+// FIXED: Restored Color Hex string conversion logic
+extension CGColor {
+    func toHexString() -> String? {
+        guard let c = self.components, c.count >= 3 else { return nil }
+        return String(format: "#%02lX%02lX%02lX", lroundf(Float(c[0])*255), lroundf(Float(c[1])*255), lroundf(Float(c[2])*255))
     }
 }
