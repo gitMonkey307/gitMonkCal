@@ -11,7 +11,6 @@ struct ContentView: View {
         } detail: {
             detailStack
         }
-        // Universal Theme Tint Applied Here
         .tint(Color(hex: viewModel.themeColorHex) ?? .blue)
         .sheet(isPresented: $viewModel.isAddingNew, onDismiss: { viewModel.targetDateForNewItem = nil }) {
             EventEditView(viewModel: viewModel, initialDate: viewModel.targetDateForNewItem)
@@ -65,11 +64,10 @@ struct ContentView: View {
                 .navigationTitle(viewModel.selectedView.capitalized)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    // Feature: Jump To Date Button
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button { viewModel.showDatePicker = true } label: {
-                            Image(systemName: "calendar.badge.clock")
-                        }
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        // NEW: Snap to Today Button
+                        Button { viewModel.jumpToToday() } label: { Text("Today").fontWeight(.semibold) }
+                        Button { viewModel.showDatePicker = true } label: { Image(systemName: "calendar.badge.clock") }
                     }
                 }
             
