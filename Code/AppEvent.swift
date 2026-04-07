@@ -19,13 +19,14 @@ public struct AppEvent: Identifiable, Hashable, Codable {
     public var isAllDay: Bool
     public var location: String?
     public var notes: String?
-    public var hasAlarms: Bool
+    public var alarms: [TimeInterval]      // FIXED: Prevents alarm wiping
+    public var recurrence: RecurrenceType  // FIXED: Prevents recurrence wiping
     public var source: EventSource
     public var calendarID: String
     public var colorHex: String 
 
-    public init(id: String = UUID().uuidString, title: String, startDate: Date, endDate: Date, isAllDay: Bool = false, location: String? = nil, notes: String? = nil, hasAlarms: Bool = false, source: EventSource = .local, calendarID: String, colorHex: String = "#007AFF") {
-        self.id = id; self.title = title; self.startDate = startDate; self.endDate = endDate; self.isAllDay = isAllDay; self.location = location; self.notes = notes; self.hasAlarms = hasAlarms; self.source = source; self.calendarID = calendarID; self.colorHex = colorHex
+    public init(id: String = UUID().uuidString, title: String, startDate: Date, endDate: Date, isAllDay: Bool = false, location: String? = nil, notes: String? = nil, alarms: [TimeInterval] = [], recurrence: RecurrenceType = .none, source: EventSource = .local, calendarID: String, colorHex: String = "#007AFF") {
+        self.id = id; self.title = title; self.startDate = startDate; self.endDate = endDate; self.isAllDay = isAllDay; self.location = location; self.notes = notes; self.alarms = alarms; self.recurrence = recurrence; self.source = source; self.calendarID = calendarID; self.colorHex = colorHex
     }
 
     public var displayColor: Color { Color(hex: colorHex) ?? .blue }
