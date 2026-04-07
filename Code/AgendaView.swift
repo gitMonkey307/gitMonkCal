@@ -15,16 +15,11 @@ struct AgendaView: View {
             ForEach(upcomingEvents.prefix(100)) { event in
                 VStack(alignment: .leading, spacing: DesignSystem.Layout.densePadding) {
                     HStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(event.displayColor)
-                            .frame(width: 4)
+                        RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
                         VStack(alignment: .leading, spacing: 0) {
-                            Text(event.title)
-                                .font(DesignSystem.Typography.eventPill)
-                                .lineLimit(1)
+                            Text(event.title).font(DesignSystem.Typography.eventPill).lineLimit(1)
                             Text(event.startDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour(.defaultDigitsAMPM).minute(.twoDigits)))
-                                .font(DesignSystem.Typography.timeLabel)
-                                .foregroundColor(.secondary)
+                                .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
                         }
                         Spacer()
                     }
@@ -33,8 +28,6 @@ struct AgendaView: View {
             }
         }
         .listStyle(.plain)
-        .refreshable {
-            await viewModel.refreshData()
-        }
+        .refreshable { await viewModel.refreshData() }
     }
 }
