@@ -32,16 +32,7 @@ struct ContentView: View {
         } detail: {
             ZStack(alignment: .bottomTrailing) {
                 Group {
-                    switch viewModel.selectedView {
-                    case "month": MonthView(viewModel: viewModel, searchText: viewModel.searchText)
-                    case "week": MultiDayView(viewModel: viewModel)
-                    case "day": DayView(viewModel: viewModel, searchText: viewModel.searchText)
-                    case "agenda": AgendaView(viewModel: viewModel, searchText: viewModel.searchText)
-                    case "tasks": TasksView(viewModel: viewModel, searchText: viewModel.searchText)
-                    case "year": YearView(viewModel: viewModel)
-                    case "settings": SettingsView(viewModel: viewModel)
-                    default: MonthView(viewModel: viewModel, searchText: viewModel.searchText)
-                    }
+                    detailContent()
                 }
                 .searchable(text: $viewModel.searchText)
                 .navigationTitle(viewModel.selectedView.capitalized)
@@ -61,6 +52,21 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingEventEdit) { EventEditView(viewModel: viewModel) }
         .task { await viewModel.requestAccessAndFetch() }
+    }
+    
+    // Extracted view builder to resolve SwiftUI compiler complexity timeout
+    @ViewBuilder
+    private func detailContent() -> some View {
+        switch viewModel.selectedView {
+        case "month": MonthView(viewModel: viewModel, searchText: viewModel.searchText)
+        case "week": MultiDayView(viewModel: viewModel)
+        case "day": DayView(viewModel: viewModel, searchText: viewModel.searchText)
+        case "agenda": AgendaView(viewModel: viewModel, searchText: viewModel.searchText)
+        case "tasks": TasksView(viewModel: viewModel, searchText: viewModel.searchText)
+        case "year": YearView(viewModel: viewModel)
+        case "settings": SettingsView(viewModel: viewModel)
+        default: MonthView(viewModel: viewModel, searchText: viewModel.searchText)
+        }
     }
 }
 
