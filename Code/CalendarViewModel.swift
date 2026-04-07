@@ -7,7 +7,8 @@ import EventKit
 public class CalendarViewModel: ObservableObject {
     @Published public var groupedEvents: [Date: [AppEvent]] = [:]
     @Published public var reminders: [AppReminder] = []
-    @Published public var templates: [EventTemplate] = [] // Feature: Templates
+    @Published public var templates: [EventTemplate] = []
+    @Published public var recentLocations: [String] = [] // Feature: Location History
     
     @Published public var availableCalendars: [EKCalendar] = []
     @Published public var availableReminderLists: [EKCalendar] = []
@@ -18,22 +19,21 @@ public class CalendarViewModel: ObservableObject {
     @Published public var anchorDate: Date = Date()
     @Published public var searchText: String = ""
     @Published public var selectedView: String = "month"
-    @Published public var agendaFilter: String = "all" // "all", "events", "tasks"
+    @Published public var agendaFilter: String = "all"
     
-    // Global Settings & Routing
     @Published public var isAddingNew: Bool = false
     @Published public var targetDateForNewItem: Date? = nil
     @Published public var editingEvent: AppEvent? = nil
     @Published public var editingTask: AppReminder? = nil
     @Published public var eventToDuplicate: AppEvent? = nil
     @Published public var showDatePicker: Bool = false
+    
     @Published public var themeColorHex: String = "#007AFF"
     @Published public var hideCompletedTasks: Bool = false
     @Published public var defaultDuration: Int = 60
     @Published public var firstDayOfWeek: Int = 1
     @Published public var eventOpacity: Double = 0.2
-    @Published public var coreHourStart: Int = 8
-    @Published public var coreHourEnd: Int = 18
+    @Published public var isHighDensity: Bool = false // Feature: Density Mode
 
     public var currentViewRange: (start: Date, end: Date)
     public let eventKitManager: EventKitManager
@@ -53,22 +53,15 @@ public class CalendarViewModel: ObservableObject {
             .sink { [weak self] _ in Task { await self?.refreshData() } }.store(in: &cancellables)
     }
 
-    // MARK: - Template Management
-    public func saveTemplate(_ template: EventTemplate) {
-        templates.append(template)
-        if let encoded = try? JSONEncoder().encode(templates) {
-            UserDefaults.standard.set(encoded, forKey: "saved_templates")
-        }
-    }
-    
-    public func deleteTemplate(at offsets: IndexSet) {
-        templates.remove(atOffsets: offsets)
-        if let encoded = try? JSONEncoder().encode(templates) {
-            UserDefaults.standard.set(encoded, forKey: "saved_templates")
-        }
+    public func saveLocation(_ loc: String) {
+        guard !loc.isEmpty else { return }
+        var current = recentLocations
+        current.removeAll { $0 == loc }
+        current.insert(loc, at: 0)
+        recentLocations = Array(current.prefix(5))
+        UserDefaults.standard.set(recentLocations, forKey: "recent_locations")
     }
 
-    // MARK: - Refresh Data
     public func refreshData() async {
         guard eventKitManager.isAuthorized else { return }
         isLoading = true
@@ -78,7 +71,6 @@ public class CalendarViewModel: ObservableObject {
         do {
             let events = try await eventKitManager.fetchEvents(from: currentViewRange.start, to: currentViewRange.end, in: targetCals)
             let rawReminders = try await eventKitManager.fetchReminders(in: targetLists)
-            
             var dict: [Date: [AppEvent]] = [:]
             for e in events {
                 var currentDay = Calendar.current.startOfDay(for: e.startDate)
@@ -88,7 +80,6 @@ public class CalendarViewModel: ObservableObject {
                     currentDay = Calendar.current.date(byAdding: .day, value: 1, to: currentDay)!
                 }
             }
-            for (date, evs) in dict { dict[date] = evs.sorted { $0.isAllDay && !$1.isAllDay } }
             self.groupedEvents = dict
             self.reminders = rawReminders
         } catch { print(error) }
@@ -104,49 +95,40 @@ public class CalendarViewModel: ObservableObject {
             if visibleCalendarIDs.isEmpty { self.visibleCalendarIDs = Set(availableCalendars.map { $0.calendarIdentifier }) }
             if visibleReminderListIDs.isEmpty { self.visibleReminderListIDs = Set(availableReminderLists.map { $0.calendarIdentifier }) }
             await refreshData()
-        } catch { print(error) }
+        } catch { print("Auth Fail: \(error)") }
     }
 
     public func toggleReminderCompleted(_ reminder: AppReminder) async {
-        do { 
-            try await eventKitManager.toggleTaskCompletion(reminder)
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-            await refreshData() 
-        } catch { print(error) }
+        try? await eventKitManager.toggleTaskCompletion(reminder)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        await refreshData()
     }
-    
+
     public func deleteEvent(_ event: AppEvent) { try? eventKitManager.deleteEvent(identifier: event.id); Task { await refreshData() } }
     public func deleteTask(_ task: AppReminder) { try? eventKitManager.deleteTask(identifier: task.id); Task { await refreshData() } }
     public func jumpToToday() { anchorDate = Date() }
-    
-    public func toggleCalendarVisibility(calendarID: String) async {
-        if visibleCalendarIDs.contains(calendarID) { visibleCalendarIDs.remove(calendarID) } else { visibleCalendarIDs.insert(calendarID) }
-        await refreshData()
-    }
     
     private func loadPreferences() {
         let d = UserDefaults.standard
         themeColorHex = d.string(forKey: "themeColorHex") ?? "#007AFF"
         hideCompletedTasks = d.bool(forKey: "hideCompletedTasks")
+        isHighDensity = d.bool(forKey: "isHighDensity")
+        recentLocations = d.stringArray(forKey: "recent_locations") ?? []
         defaultDuration = d.integer(forKey: "defaultDuration") == 0 ? 60 : d.integer(forKey: "defaultDuration")
         firstDayOfWeek = d.integer(forKey: "firstDayOfWeek") == 0 ? 1 : d.integer(forKey: "firstDayOfWeek")
         eventOpacity = d.double(forKey: "eventOpacity") == 0 ? 0.2 : d.double(forKey: "eventOpacity")
-        
-        if let data = d.data(forKey: "saved_templates"), let decoded = try? JSONDecoder().decode([EventTemplate].self, from: data) {
-            templates = decoded
-        }
+        if let data = d.data(forKey: "saved_templates"), let decoded = try? JSONDecoder().decode([EventTemplate].self, from: data) { templates = decoded }
     }
-    
-    public func updateSettings(hideTasks: Bool, duration: Int, themeHex: String, firstDay: Int) {
-        hideCompletedTasks = hideTasks; defaultDuration = duration; themeColorHex = themeHex; firstDayOfWeek = firstDay
-        UserDefaults.standard.set(hideTasks, forKey: "hideCompletedTasks")
-        UserDefaults.standard.set(duration, forKey: "defaultDuration")
-        UserDefaults.standard.set(themeHex, forKey: "themeColorHex")
-        UserDefaults.standard.set(firstDay, forKey: "firstDayOfWeek")
+
+    public func updateSettings(hideTasks: Bool, duration: Int, themeHex: String, firstDay: Int, density: Bool) {
+        hideCompletedTasks = hideTasks; defaultDuration = duration; themeColorHex = themeHex; firstDayOfWeek = firstDay; isHighDensity = density
+        let d = UserDefaults.standard
+        d.set(hideTasks, forKey: "hideCompletedTasks"); d.set(duration, forKey: "defaultDuration")
+        d.set(themeHex, forKey: "themeColorHex"); d.set(firstDay, forKey: "firstDayOfWeek"); d.set(density, forKey: "isHighDensity")
     }
-    
-    public func updateCoreHours(start: Int, end: Int) {
-        coreHourStart = max(0, min(23, start)); coreHourEnd = max(coreHourStart + 1, min(24, end))
-        UserDefaults.standard.set(coreHourStart, forKey: "coreHourStart"); UserDefaults.standard.set(coreHourEnd, forKey: "coreHourEnd")
+
+    public func toggleCalendarVisibility(calendarID: String) async {
+        if visibleCalendarIDs.contains(calendarID) { visibleCalendarIDs.remove(calendarID) } else { visibleCalendarIDs.insert(calendarID) }
+        await refreshData()
     }
 }
