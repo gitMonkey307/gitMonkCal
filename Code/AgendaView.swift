@@ -40,7 +40,6 @@ struct AgendaView: View {
 
     private var filterHeader: some View {
         HStack {
-            // FIXED: Uses centralized FilterChipView
             FilterChipView(title: "All", id: "all", selectedID: $viewModel.agendaFilter)
             FilterChipView(title: "Events", id: "events", selectedID: $viewModel.agendaFilter)
             FilterChipView(title: "Tasks", id: "tasks", selectedID: $viewModel.agendaFilter)
@@ -48,4 +47,42 @@ struct AgendaView: View {
         }
         .padding(.horizontal).padding(.vertical, 8).background(DesignSystem.Aesthetics.toolbarMaterial)
     }
+}
+
+struct AgendaRowView: View {
+    let item: UnifiedAgendaItem; @ObservedObject var viewModel: CalendarViewModel; let searchText: String
+    var body: some View {
+        Group {
+            switch item {
+            case .event(let event): eventRow(event)
+            case .task(let task): taskRow(task)
+            }
+        }
+        .swipeActions(edge: .trailing) { Button(role: .destructive) { delete() } label: { Label("Delete", systemImage: "trash") } }
+        .swipeActions(edge: .leading) { Button { viewModel.moveItemToTomorrow(item) } label: { Label("Tomorrow", systemImage: "arrow.right.circle") }.tint(.orange) }
+    }
+
+    @ViewBuilder
+    private func eventRow(_ event: AppEvent) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack { if event.isBirthday { Text("🎁").font(.system(size: 10)) }; Text(event.title).font(DesignSystem.Typography.eventPill).fontWeight(searchText.isEmpty ? .regular : (event.title.localizedCaseInsensitiveContains(searchText) ? .black : .regular)) }
+                Text(event.startDate.formatted(.dateTime.hour().minute())).font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
+            }
+        }
+        .onTapGesture { viewModel.editingEvent = event }
+    }
+
+    @ViewBuilder
+    private func taskRow(_ task: AppReminder) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle").foregroundColor(task.isCompleted ? .green : .secondary).onTapGesture { Task { await viewModel.toggleReminderCompleted(task) } }
+            RoundedRectangle(cornerRadius: 1).fill(task.displayColor).frame(width: CGFloat(task.priority < 5 && task.priority > 0 ? 6 : 2))
+            VStack(alignment: .leading, spacing: 0) { Text(task.title).font(DesignSystem.Typography.eventPill).strikethrough(task.isCompleted).fontWeight(searchText.isEmpty ? .regular : (task.title.localizedCaseInsensitiveContains(searchText) ? .black : .regular)); if let notes = task.notes, !notes.isEmpty { Text(notes).font(.system(size: 8)).lineLimit(1).foregroundColor(.secondary) } }
+            Spacer()
+        }
+        .onTapGesture { viewModel.editingTask = task }
+    }
+    private func delete() { switch item { case .event(let e): viewModel.deleteEvent(e); case .task(let t): viewModel.deleteTask(t) } }
 }
