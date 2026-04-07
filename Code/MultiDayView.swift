@@ -7,7 +7,6 @@ struct MultiDayView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            // FIXED: Explicitly casting values to prevent compiler timeout
             let displayCount = CGFloat(max(1, viewModel.daysToDisplay))
             let columnWidth = geometry.size.width / displayCount
 
@@ -16,7 +15,7 @@ struct MultiDayView: View {
                     LazyHStack(spacing: 0) {
                         ForEach(viewModel.dateRangeArray, id: \.self) { date in
                             let events = viewModel.groupedEvents[Foundation.Calendar.current.startOfDay(for: date)]?.filter {
-                                viewModel.searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(viewModel.searchText)
+                                viewModel.searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)
                             } ?? []
                             
                             DayColumnView(date: date, events: events, width: columnWidth, opacity: viewModel.eventOpacity, viewModel: viewModel)
@@ -25,7 +24,6 @@ struct MultiDayView: View {
                     .scrollTargetLayout()
                 }
                 .scrollTargetBehavior(.viewAligned)
-                
                 sliderControl
             }
         }
@@ -53,17 +51,51 @@ struct DayColumnView: View {
             Text(date.formatted(.dateTime.day())).font(.caption2)
             Divider().padding(.vertical, 4)
             ZStack(alignment: .top) {
+                // FIXED: Parallel Stacking Logic for BC2 Pro density
                 ForEach(events) { event in 
-                    TimelineEventPill(event: event, columnWidth: width, opacity: opacity, viewModel: viewModel) 
+                    let overlaps = events.filter { $0.overlaps(with: event) }
+                    let sortedOverlaps = overlaps.sorted { $0.startDate < $1.startDate }
+                    let myIndex = sortedOverlaps.firstIndex(of: event) ?? 0
+                    let sharedCount = CGFloat(max(1, overlaps.count))
+                    
+                    TimelineEventPill(
+                        event: event, 
+                        columnWidth: width / sharedCount, 
+                        opacity: opacity, 
+                        viewModel: viewModel
+                    )
+                    .offset(x: CGFloat(myIndex) * (width / sharedCount))
                 }
-                
-                // FIXED: Resolved namespace collision
-                if Foundation.Calendar.current.isDateInToday(date) { 
-                    LiveTimeIndicator(width: width) 
-                }
+                if Foundation.Calendar.current.isDateInToday(date) { LiveTimeIndicator(width: width) }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .frame(width: width).border(DesignSystem.Aesthetics.gridLine, width: 0.5)
+    }
+}
+
+struct TimelineEventPill: View {
+    let event: AppEvent; let columnWidth: CGFloat; let opacity: Double; @ObservedObject var viewModel: CalendarViewModel
+    private var geometry: (top: CGFloat, height: CGFloat) {
+        let cal = Foundation.Calendar.current
+        let startMins = Double(cal.component(.hour, from: event.startDate) * 60 + cal.component(.minute, from: event.startDate))
+        let durationMins = Double(event.durationInMinutes)
+        let hourHeight = Double(DesignSystem.Layout.timelineHourHeight)
+        return (CGFloat((startMins / 60.0) * hourHeight), CGFloat(max((durationMins / 60.0) * hourHeight, 20.0)))
+    }
+    var body: some View {
+        if !event.isAllDay {
+            VStack(alignment: .leading, spacing: 0) { 
+                Text(event.title).font(.system(size: 8, weight: .bold)).lineLimit(1) 
+            }
+            .padding(2)
+            .frame(width: columnWidth - 2, height: geometry.height, alignment: .topLeading)
+            .background(event.displayColor.opacity(opacity))
+            .foregroundColor(event.displayColor)
+            .cornerRadius(2)
+            .offset(y: geometry.top)
+            .contentShape(Rectangle())
+            .onTapGesture { viewModel.editingEvent = event }
+        }
     }
 }
