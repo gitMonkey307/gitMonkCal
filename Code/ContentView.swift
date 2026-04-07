@@ -11,7 +11,8 @@ struct ContentView: View {
         } detail: {
             detailStack
         }
-        .tint(Color(hex: viewModel.themeColorHex) ?? .blue)
+        // FIXED: Removed 'hex:' label for standard unlabeled initializer
+        .tint(Color(viewModel.themeColorHex) ?? .blue)
         .sheet(isPresented: $viewModel.isAddingNew, onDismiss: { viewModel.targetDateForNewItem = nil }) {
             EventEditView(viewModel: viewModel, initialDate: viewModel.targetDateForNewItem)
         }
@@ -61,11 +62,11 @@ struct ContentView: View {
         ZStack(alignment: .bottomTrailing) {
             mainContent
                 .searchable(text: $viewModel.searchText)
+                .onSubmit(of: .search) { viewModel.addToSearchHistory(viewModel.searchText) }
                 .navigationTitle(viewModel.selectedView.capitalized)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItemGroup(placement: .topBarTrailing) {
-                        // NEW: Snap to Today Button
                         Button { viewModel.jumpToToday() } label: { Text("Today").fontWeight(.semibold) }
                         Button { viewModel.showDatePicker = true } label: { Image(systemName: "calendar.badge.clock") }
                     }
@@ -100,7 +101,8 @@ struct ContentView: View {
                 .font(.title2.bold())
                 .foregroundColor(.white)
                 .frame(width: 56, height: 56)
-                .background(Circle().fill(Color(hex: viewModel.themeColorHex) ?? .blue).shadow(radius: 4))
+                // FIXED: Removed 'hex:' label
+                .background(Circle().fill(Color(viewModel.themeColorHex) ?? .blue).shadow(radius: 4))
         }
         .padding(24)
     }
