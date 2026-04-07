@@ -8,8 +8,7 @@ struct AgendaProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (AgendaEntry) -> ()) {
-        let entry = AgendaEntry(date: Date(), events: [])
-        completion(entry)
+        completion(AgendaEntry(date: Date(), events: []))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
@@ -19,7 +18,6 @@ struct AgendaProvider: TimelineProvider {
             let endDate = Calendar.current.date(byAdding: .day, value: 1, to: currentDate)!
             
             let eventManager = EventKitManager()
-            
             do {
                 try await eventManager.requestCalendarAccess()
                 let fetchedEvents = try await eventManager.fetchEvents(from: currentDate, to: endDate)
@@ -30,9 +28,7 @@ struct AgendaProvider: TimelineProvider {
             }
             
             let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: currentDate)!
-            let timeline = Timeline(entries: entries, policy: .after(nextUpdate))
-            
-            completion(timeline)
+            completion(Timeline(entries: entries, policy: .after(nextUpdate)))
         }
     }
 }
@@ -46,43 +42,28 @@ struct AgendaWidgetEntryView : View {
     var entry: AgendaProvider.Entry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Layout.densePadding) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(entry.date.formatted(.dateTime.weekday(.wide).month().day()))
-                    .font(DesignSystem.Typography.header)
-                    .foregroundColor(.blue) 
+                Text(entry.date.formatted(.dateTime.weekday(.wide).month().day())).font(.system(size: 14, weight: .bold)).foregroundColor(.blue) 
                 Spacer()
-                Image(systemName: "calendar")
-                    .foregroundColor(.secondary)
+                Image(systemName: "calendar").foregroundColor(.secondary)
             }
             .padding(.bottom, 2)
-            
             Divider()
             
             if entry.events.isEmpty {
                 Spacer()
-                Text("No upcoming events")
-                    .font(DesignSystem.Typography.body)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                Text("No upcoming events").font(.system(size: 12)).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .center)
                 Spacer()
             } else {
                 VStack(spacing: 2) { 
                     ForEach(entry.events.prefix(4)) { event in
                         HStack(spacing: 6) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(event.displayColor)
-                                .frame(width: 4)
-                            
+                            RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
                             VStack(alignment: .leading, spacing: 0) {
-                                Text(event.title)
-                                    .font(DesignSystem.Typography.eventPill)
-                                    .lineLimit(1)
-                                
+                                Text(event.title).font(.system(size: 10, weight: .semibold)).lineLimit(1)
                                 if !event.isAllDay {
-                                    Text(event.startDate.formatted(date: .omitted, time: .shortened))
-                                        .font(DesignSystem.Typography.timeLabel)
-                                        .foregroundColor(.secondary)
+                                    Text(event.startDate.formatted(date: .omitted, time: .shortened)).font(.system(size: 8)).foregroundColor(.secondary)
                                 }
                             }
                             Spacer()
