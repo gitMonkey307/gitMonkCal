@@ -7,18 +7,18 @@ struct MultiDayView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            // FIXED: Explicitly casting the Value, not the Binding
-            let displayCount = CGFloat(viewModel.daysToDisplay)
+            // FIXED: Explicitly casting raw Int value, not the Binding
+            let displayCount = CGFloat(max(1, viewModel.daysToDisplay))
             let columnWidth = geometry.size.width / displayCount
 
             ZStack(alignment: .bottom) {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 0) {
                         ForEach(viewModel.dateRangeArray, id: \.self) { date in
-                            let events = viewModel.groupedEvents[date]?.filter {
-                                viewModel.searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)
+                            let events = viewModel.groupedEvents[Calendar.current.startOfDay(for: date)]?.filter {
+                                viewModel.searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(viewModel.searchText)
                             } ?? []
-                            DayColumn(date: date, events: events, width: columnWidth, opacity: viewModel.eventOpacity, viewModel: viewModel)
+                            DayColumnView(date: date, events: events, width: columnWidth, opacity: viewModel.eventOpacity, viewModel: viewModel)
                         }
                     }
                     .scrollTargetLayout()
@@ -34,6 +34,7 @@ struct MultiDayView: View {
         VStack(spacing: 0) {
             Divider()
             HStack(spacing: 15) {
+                // FIXED: Explicit text interpolation
                 Text("\(viewModel.daysToDisplay) Days").font(DesignSystem.Typography.timeLabel).monospacedDigit().frame(width: 50)
                 Slider(value: Binding(get: { Double(viewModel.daysToDisplay) }, set: { viewModel.daysToDisplay = Int($0); haptic.impactOccurred() }), in: 1...14, step: 1)
             }
@@ -42,9 +43,7 @@ struct MultiDayView: View {
     }
 }
 
-private let searchText = "" // Global scope for simplicity in this target
-
-struct DayColumn: View {
+struct DayColumnView: View {
     let date: Date; let events: [AppEvent]; let width: CGFloat; let opacity: Double; @ObservedObject var viewModel: CalendarViewModel
     var body: some View {
         VStack(spacing: 0) {
