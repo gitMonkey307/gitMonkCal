@@ -17,7 +17,6 @@ struct MultiDayView: View {
                                 viewModel.searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(viewModel.searchText)
                             } ?? []
                             
-                            // Passed viewModel down to the column
                             DayColumn(date: date, events: events, width: columnWidth, opacity: viewModel.eventOpacity, viewModel: viewModel)
                         }
                     }
@@ -25,7 +24,6 @@ struct MultiDayView: View {
                 }
                 .scrollTargetBehavior(.viewAligned)
 
-                // THE BC2 SLIDER
                 VStack(spacing: 0) {
                     Divider()
                     HStack(spacing: 15) {
@@ -64,7 +62,6 @@ struct DayColumn: View {
             
             ZStack(alignment: .top) {
                 ForEach(events) { event in
-                    // Passed viewModel down to the Pill
                     TimelineEventPill(event: event, columnWidth: width, opacity: opacity, viewModel: viewModel)
                 }
             }
@@ -75,7 +72,7 @@ struct DayColumn: View {
     }
 }
 
-// Shared Component: Used by MultiDayView and DayView
+// SHARED VIEW: Explicitly typed to prevent compiler timeouts
 struct TimelineEventPill: View {
     let event: AppEvent
     let columnWidth: CGFloat
@@ -84,8 +81,26 @@ struct TimelineEventPill: View {
 
     var body: some View {
         if !event.isAllDay {
+            // STRICT TYPING: Eliminates compiler ambiguity
             let cal = Calendar.current
-            let startMins = CGFloat(cal.component(.hour, from: event.startDate) * 60 + cal.component(.minute, from: event.startDate))
-            let duration = CGFloat(event.durationInMinutes)
-            let topOffset = (startMins / 60.0) * DesignSystem.Layout.timelineHourHeight
-            let height = max((duration / 60
+            let startMins = Double(cal.component(.hour, from: event.startDate) * 60 + cal.component(.minute, from: event.startDate))
+            let durationMins = Double(event.durationInMinutes)
+            let hourHeight = Double(DesignSystem.Layout.timelineHourHeight)
+            
+            let topOffset = CGFloat((startMins / 60.0) * hourHeight)
+            let height = CGFloat(max((durationMins / 60.0) * hourHeight, 20.0))
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(event.title).font(DesignSystem.Typography.eventPill).fontWeight(.bold).lineLimit(1)
+            }
+            .padding(4)
+            .frame(width: columnWidth - 4, height: height, alignment: .topLeading)
+            .background(event.displayColor.opacity(opacity))
+            .foregroundColor(event.displayColor)
+            .cornerRadius(DesignSystem.Aesthetics.pillRadius)
+            .offset(y: topOffset)
+            .contentShape(Rectangle())
+            .onTapGesture { viewModel.editingEvent = event }
+        }
+    }
+}
