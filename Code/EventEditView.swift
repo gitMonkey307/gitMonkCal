@@ -5,7 +5,6 @@ public struct EventEditView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: CalendarViewModel
     
-    // Optional Init Parameters for Editing
     var eventToEdit: AppEvent?
     var taskToEdit: AppReminder?
     
@@ -89,8 +88,10 @@ public struct EventEditView: View {
             }
             .onAppear {
                 if let e = eventToEdit {
+                    // FIXED: Alarms and Recurrence are now properly loaded from existing events
                     isTask = false; title = e.title; location = e.location ?? ""; isAllDay = e.isAllDay
                     startDate = e.startDate; endDate = e.endDate; notes = e.notes ?? ""; selectedID = e.calendarID
+                    alarms = e.alarms; recurrenceType = e.recurrence
                 } else if let t = taskToEdit {
                     isTask = true; title = t.title; startDate = t.dueDate ?? Date(); notes = t.notes ?? ""; selectedID = t.listID
                 } else {
