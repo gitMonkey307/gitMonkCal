@@ -10,7 +10,8 @@ struct CalendarApp: App {
             ContentView()
                 .environmentObject(viewModel)
         }
-        .onChange(of: scenePhase) { newPhase in
+        // iOS 17 Native two-parameter implementation
+        .onChange(of: scenePhase) { oldPhase, newPhase in
             if newPhase == .active { Task { await viewModel.refreshData() } }
         }
     }
