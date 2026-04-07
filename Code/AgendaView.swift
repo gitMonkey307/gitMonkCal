@@ -13,45 +13,78 @@ struct AgendaView: View {
 
     private var groupedItems: [(Date, [UnifiedAgendaItem])] {
         var items: [UnifiedAgendaItem] = []
-        let validEvents = viewModel.groupedEvents.values.flatMap { $0 }.filter { $0.startDate >= Date() && (searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)) }
-        items.append(contentsOf: validEvents.map { .event($0) })
         
-        let validTasks = viewModel.reminders.filter { t in
-            (!t.isCompleted || !viewModel.hideCompletedTasks) && (searchText.isEmpty || t.title.localizedCaseInsensitiveContains(searchText))
+        // Respect Agenda Filter Logic
+        if viewModel.agendaFilter == "all" || viewModel.agendaFilter == "events" {
+            let validEvents = viewModel.groupedEvents.values.flatMap { $0 }.filter { $0.startDate >= Date() && (searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)) }
+            items.append(contentsOf: validEvents.map { .event($0) })
         }
-        items.append(contentsOf: validTasks.map { .task($0) })
-        let sorted = items.sorted { $0.sortDate < $1.sortDate }
         
+        if viewModel.agendaFilter == "all" || viewModel.agendaFilter == "tasks" {
+            let validTasks = viewModel.reminders.filter { t in
+                (!t.isCompleted || !viewModel.hideCompletedTasks) && (searchText.isEmpty || t.title.localizedCaseInsensitiveContains(searchText))
+            }
+            items.append(contentsOf: validTasks.map { .task($0) })
+        }
+        
+        let sorted = items.sorted { $0.sortDate < $1.sortDate }
         let grouped = Dictionary(grouping: sorted) { Calendar.current.startOfDay(for: $0.sortDate) }
         return grouped.sorted { $0.key < $1.key }
     }
 
     var body: some View {
-        List {
-            ForEach(groupedItems, id: \.0) { date, items in
-                Section(header: Text(date.formatted(.dateTime.weekday(.wide).month(.wide).day())).font(.headline).foregroundColor(.primary)) {
-                    ForEach(items) { item in
-                        AgendaRowView(item: item, viewModel: viewModel)
+        VStack(spacing: 0) {
+            filterHeader
+            List {
+                ForEach(groupedItems, id: \.0) { date, items in
+                    Section(header: Text(date.formatted(.dateTime.weekday(.wide).month(.wide).day())).font(.headline).foregroundColor(.primary)) {
+                        ForEach(items) { item in
+                            AgendaRowView(item: item, viewModel: viewModel)
+                        }
                     }
                 }
             }
+            .listStyle(.plain)
         }
-        .listStyle(.plain)
         .refreshable { await viewModel.refreshData() }
+    }
+    
+    // Feature: BC2 Filter Chips
+    private var filterHeader: some View {
+        HStack {
+            FilterChip(title: "All", id: "all", selectedID: $viewModel.agendaFilter)
+            FilterChip(title: "Events", id: "events", selectedID: $viewModel.agendaFilter)
+            FilterChip(title: "Tasks", id: "tasks", selectedID: $viewModel.agendaFilter)
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .background(DesignSystem.Aesthetics.toolbarMaterial)
+    }
+}
+
+struct FilterChip: View {
+    let title: String; let id: String
+    @Binding var selectedID: String
+    var body: some View {
+        Button(title) { selectedID = id }
+            .font(.caption.bold())
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(selectedID == id ? Color.accentColor : Color.secondary.opacity(0.1))
+            .foregroundColor(selectedID == id ? .white : .primary)
+            .cornerRadius(12)
     }
 }
 
 struct AgendaRowView: View {
     let item: UnifiedAgendaItem
     @ObservedObject var viewModel: CalendarViewModel
-    
     var body: some View {
         Group {
             switch item {
-            case .event(let event):
-                eventRow(event)
-            case .task(let task):
-                taskRow(task)
+            case .event(let event): eventRow(event)
+            case .task(let task): taskRow(task)
             }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -68,69 +101,39 @@ struct AgendaRowView: View {
     private func eventRow(_ event: AppEvent) -> some View {
         HStack(spacing: 6) {
             if event.isAllDay {
-                // Feature: BC2 "Dressed" All Day Events
-                Text(event.title)
-                    .font(DesignSystem.Typography.eventPill)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(event.displayColor.cornerRadius(4))
+                Text(event.title).font(DesignSystem.Typography.eventPill).foregroundColor(.white).padding(6)
+                    .frame(maxWidth: .infinity, alignment: .leading).background(event.displayColor.cornerRadius(4))
             } else {
                 RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 4) {
+                    HStack {
                         if event.isBirthday { Text("🎁").font(.system(size: 10)) }
                         Text(event.title).font(DesignSystem.Typography.eventPill).lineLimit(1)
                     }
-                    Text(event.startDate.formatted(.dateTime.hour().minute()))
-                        .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
+                    Text(event.startDate.formatted(.dateTime.hour().minute())).font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
                 }
                 Spacer()
             }
         }
-        .padding(.vertical, 2)
-        .contentShape(Rectangle())
         .onTapGesture { viewModel.editingEvent = event }
-        .contextMenu {
-            Button { viewModel.eventToDuplicate = event } label: { Label("Duplicate", systemImage: "doc.on.doc") }
-        }
     }
 
     @ViewBuilder
     private func taskRow(_ task: AppReminder) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(task.isCompleted ? .green : .secondary)
-                .font(.title3)
-                .onTapGesture { Task { await viewModel.toggleReminderCompleted(task) } }
-            
+            Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle").foregroundColor(task.isCompleted ? .green : .secondary).onTapGesture { Task { await viewModel.toggleReminderCompleted(task) } }
             VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 2) {
+                HStack {
                     if task.priority > 0 && task.priority < 5 { Text("!!").font(.caption).foregroundColor(.red).bold() }
                     Text(task.title).font(DesignSystem.Typography.eventPill).strikethrough(task.isCompleted)
                 }
-                // Feature: Task Note preview in Agenda
-                if let notes = task.notes, !notes.isEmpty {
-                    Text(notes).font(.system(size: 8)).lineLimit(1).foregroundColor(.secondary)
-                }
-                if let dueDate = task.dueDate {
-                    Text(dueDate.formatted(.dateTime.hour().minute()))
-                        .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
-                }
+                if let dueDate = task.dueDate { Text(dueDate.formatted(.dateTime.hour().minute())).font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary) }
             }
             Spacer()
             RoundedRectangle(cornerRadius: 2).fill(task.displayColor).frame(width: 4)
         }
-        .padding(.vertical, 2)
-        .contentShape(Rectangle())
         .onTapGesture { viewModel.editingTask = task }
     }
     
-    private func delete() {
-        switch item {
-        case .event(let e): viewModel.deleteEvent(e)
-        case .task(let t): viewModel.deleteTask(t)
-        }
-    }
+    private func delete() { switch item { case .event(let e): viewModel.deleteEvent(e); case .task(let t): viewModel.deleteTask(t) } }
 }
