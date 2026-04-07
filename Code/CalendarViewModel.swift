@@ -19,15 +19,21 @@ public class CalendarViewModel: ObservableObject {
     @Published public var selectedView: String = "month"
     @Published public var daysToDisplay: Int = 7
     
-    // UI Routing States
+    // UI Routing & Pro Features State
     @Published public var isAddingNew: Bool = false
-    @Published public var targetDateForNewItem: Date? = nil // NEW: Contextual Tap-to-Add
+    @Published public var targetDateForNewItem: Date? = nil
     @Published public var editingEvent: AppEvent? = nil
     @Published public var editingTask: AppReminder? = nil
+    @Published public var eventToDuplicate: AppEvent? = nil // Feature: Duplication
+    @Published public var showDatePicker: Bool = false      // Feature: Jump to Date
     
+    // Global Settings
     @Published public var coreHourStart: Int = 8
     @Published public var coreHourEnd: Int = 18
     @Published public var eventOpacity: Double = 0.2
+    @Published public var themeColorHex: String = "#007AFF" // Feature: Global Theme
+    @Published public var hideCompletedTasks: Bool = false  // Feature: Hide Tasks
+    @Published public var defaultDuration: Int = 60         // Feature: Default Duration
 
     public var currentViewRange: (start: Date, end: Date)
     public let eventKitManager: EventKitManager
@@ -113,21 +119,26 @@ public class CalendarViewModel: ObservableObject {
         while current <= end { dates.append(current); current = Calendar.current.date(byAdding: .day, value: 1, to: current)! }
         return dates
     }
-    
-    public var filteredReminders: [AppReminder] {
-        searchText.isEmpty ? reminders : reminders.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
-    }
 
     private func loadPreferences() {
         let d = UserDefaults.standard
         coreHourStart = d.integer(forKey: "coreHourStart") == 0 ? 8 : d.integer(forKey: "coreHourStart")
         coreHourEnd = d.integer(forKey: "coreHourEnd") == 0 ? 18 : d.integer(forKey: "coreHourEnd")
         eventOpacity = d.double(forKey: "eventOpacity") == 0 ? 0.2 : d.double(forKey: "eventOpacity")
+        themeColorHex = d.string(forKey: "themeColorHex") ?? "#007AFF"
+        hideCompletedTasks = d.bool(forKey: "hideCompletedTasks")
+        defaultDuration = d.integer(forKey: "defaultDuration") == 0 ? 60 : d.integer(forKey: "defaultDuration")
     }
 
     public func updateCoreHours(start: Int, end: Int) {
         coreHourStart = max(0, min(23, start)); coreHourEnd = max(coreHourStart + 1, min(24, end))
-        UserDefaults.standard.set(coreHourStart, forKey: "coreHourStart")
-        UserDefaults.standard.set(coreHourEnd, forKey: "coreHourEnd")
+        UserDefaults.standard.set(coreHourStart, forKey: "coreHourStart"); UserDefaults.standard.set(coreHourEnd, forKey: "coreHourEnd")
+    }
+    
+    public func updateSettings(hideTasks: Bool, duration: Int, themeHex: String) {
+        hideCompletedTasks = hideTasks; defaultDuration = duration; themeColorHex = themeHex
+        UserDefaults.standard.set(hideTasks, forKey: "hideCompletedTasks")
+        UserDefaults.standard.set(duration, forKey: "defaultDuration")
+        UserDefaults.standard.set(themeHex, forKey: "themeColorHex")
     }
 }
