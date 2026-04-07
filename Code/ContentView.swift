@@ -11,12 +11,25 @@ struct ContentView: View {
         } detail: {
             detailStack
         }
-        // Passes the contextual Tap-to-Add date into the editor
+        // Universal Theme Tint Applied Here
+        .tint(Color(hex: viewModel.themeColorHex) ?? .blue)
         .sheet(isPresented: $viewModel.isAddingNew, onDismiss: { viewModel.targetDateForNewItem = nil }) {
             EventEditView(viewModel: viewModel, initialDate: viewModel.targetDateForNewItem)
         }
         .sheet(item: $viewModel.editingEvent) { ev in EventEditView(viewModel: viewModel, eventToEdit: ev) }
         .sheet(item: $viewModel.editingTask) { tk in EventEditView(viewModel: viewModel, taskToEdit: tk) }
+        .sheet(item: $viewModel.eventToDuplicate) { dup in EventEditView(viewModel: viewModel, eventToDuplicate: dup) }
+        .sheet(isPresented: $viewModel.showDatePicker) {
+            NavigationView {
+                DatePicker("Jump To Date", selection: $viewModel.anchorDate, displayedComponents: .date)
+                    .datePickerStyle(.graphical)
+                    .padding()
+                    .navigationTitle("Go To Date")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { Button("Done") { viewModel.showDatePicker = false } }
+            }
+            .presentationDetents([.medium])
+        }
         .task { await viewModel.requestAccessAndFetch() }
     }
     
@@ -51,6 +64,14 @@ struct ContentView: View {
                 .searchable(text: $viewModel.searchText)
                 .navigationTitle(viewModel.selectedView.capitalized)
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    // Feature: Jump To Date Button
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { viewModel.showDatePicker = true } label: {
+                            Image(systemName: "calendar.badge.clock")
+                        }
+                    }
+                }
             
             if viewModel.selectedView != "settings" {
                 floatingActionButton
@@ -74,14 +95,14 @@ struct ContentView: View {
     
     private var floatingActionButton: some View {
         Button {
-            viewModel.targetDateForNewItem = Date() // Defaults to today if hitting global plus
+            viewModel.targetDateForNewItem = Date()
             viewModel.isAddingNew = true
         } label: {
             Image(systemName: "plus")
                 .font(.title2.bold())
                 .foregroundColor(.white)
                 .frame(width: 56, height: 56)
-                .background(Circle().fill(Color.blue).shadow(radius: 4))
+                .background(Circle().fill(Color(hex: viewModel.themeColorHex) ?? .blue).shadow(radius: 4))
         }
         .padding(24)
     }
