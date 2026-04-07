@@ -68,13 +68,6 @@ public class CalendarViewModel: ObservableObject {
             .sink { [weak self] _ in self?.objectWillChange.send(); Task { await self?.refreshData() } }.store(in: &cancellables)
     }
 
-    public func handleDeepLink(url: URL) {
-        guard url.scheme == "gitmonkcal", url.host == "event", let eventID = url.pathComponents.last else { return }
-        for eventList in groupedEvents.values {
-            if let target = eventList.first(where: { $0.id == eventID }) { self.editingEvent = target; return }
-        }
-    }
-
     public func refreshData() async {
         guard eventKitManager.isAuthorized else { return }
         isLoading = true
@@ -131,6 +124,13 @@ public class CalendarViewModel: ObservableObject {
         await refreshData()
     }
 
+    public func updateSettings(hideTasks: Bool, duration: Int, themeHex: String, firstDay: Int, density: Bool) {
+        hideCompletedTasks = hideTasks; defaultDuration = duration; themeColorHex = themeHex; firstDayOfWeek = firstDay; isHighDensity = density
+        let d = UserDefaults.standard
+        d.set(hideTasks, forKey: "hideCompletedTasks"); d.set(duration, forKey: "defaultDuration")
+        d.set(themeHex, forKey: "themeColorHex"); d.set(firstDay, forKey: "firstDayOfWeek"); d.set(density, forKey: "isHighDensity")
+    }
+
     private func loadPreferences() {
         let d = UserDefaults.standard
         themeColorHex = d.string(forKey: "themeColorHex") ?? "#007AFF"
@@ -144,18 +144,6 @@ public class CalendarViewModel: ObservableObject {
         coreHourStart = d.integer(forKey: "coreHourStart") == 0 ? 8 : d.integer(forKey: "coreHourStart")
         coreHourEnd = d.integer(forKey: "coreHourEnd") == 0 ? 18 : d.integer(forKey: "coreHourEnd")
         if let data = d.data(forKey: "saved_templates"), let decoded = try? JSONDecoder().decode([EventTemplate].self, from: data) { templates = decoded }
-    }
-
-    public func updateSettings(hideTasks: Bool, duration: Int, themeHex: String, firstDay: Int, density: Bool) {
-        hideCompletedTasks = hideTasks; defaultDuration = duration; themeColorHex = themeHex; firstDayOfWeek = firstDay; isHighDensity = density
-        let d = UserDefaults.standard
-        d.set(hideTasks, forKey: "hideCompletedTasks"); d.set(duration, forKey: "defaultDuration")
-        d.set(themeHex, forKey: "themeColorHex"); d.set(firstDay, forKey: "firstDayOfWeek"); d.set(density, forKey: "isHighDensity")
-    }
-
-    public func updateCoreHours(start: Int, end: Int) {
-        coreHourStart = max(0, min(23, start)); coreHourEnd = max(coreHourStart + 1, min(24, end))
-        UserDefaults.standard.set(coreHourStart, forKey: "coreHourStart"); UserDefaults.standard.set(coreHourEnd, forKey: "coreHourEnd")
     }
     
     public func saveLocation(_ loc: String) { guard !loc.isEmpty else { return }; var cur = recentLocations; cur.removeAll { $0 == loc }; cur.insert(loc, at: 0); recentLocations = Array(cur.prefix(5)); UserDefaults.standard.set(recentLocations, forKey: "recent_locations") }
