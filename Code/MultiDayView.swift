@@ -75,6 +75,7 @@ struct TimelineEventPill: View {
     let event: AppEvent
     let columnWidth: CGFloat
     let opacity: Double
+    @ObservedObject var viewModel: CalendarViewModel
 
     var body: some View {
         if !event.isAllDay {
@@ -93,6 +94,7 @@ struct TimelineEventPill: View {
             .foregroundColor(event.displayColor)
             .cornerRadius(DesignSystem.Aesthetics.pillRadius)
             .offset(y: topOffset)
+            .onTapGesture { viewModel.editingEvent = event }
         }
     }
 }
