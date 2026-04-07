@@ -1,4 +1,5 @@
-// Add to Settings tab or separate if needed
+import SwiftUI
+
 struct YearView: View {
     @ObservedObject var viewModel: CalendarViewModel
     let year = Calendar.current.component(.year, from: Date())
@@ -14,16 +15,17 @@ struct YearView: View {
     }
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3)) {
-            ForEach(months, id: \.0) { month, count in
-                Rectangle()
-                    .fill(Color.blue.opacity(Double(count) / 10.0))
-                    .overlay(
-                        Text(month.0.formatted(.month(.abbreviated)))
-                            .foregroundColor(.white)
-                    )
-                    .frame(height: 100)
+        ScrollView {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 10) {
+                ForEach(months, id: \.0) { month, count in
+                    Rectangle()
+                        .fill(Color.blue.opacity(max(0.1, Double(count) / 10.0)))
+                        .overlay(Text(month.0.formatted(.month(.abbreviated))).foregroundColor(.white).bold())
+                        .frame(height: 100)
+                        .cornerRadius(8)
+                }
             }
+            .padding()
         }
     }
 }
