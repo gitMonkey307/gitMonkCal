@@ -19,7 +19,6 @@ struct DayView: View {
             if viewModel.isLoading {
                 ProgressView()
             } else {
-                // FIXED: Resolved namespace collision
                 let events = viewModel.groupedEvents[Foundation.Calendar.current.startOfDay(for: selectedDate)]?.filter {
                     searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)
                 } ?? []
@@ -27,21 +26,16 @@ struct DayView: View {
                 ScrollView {
                     ZStack(alignment: .top) {
                         timelineGrid
-                        
                         ForEach(events) { event in
-                            let screenWidth = UIScreen.main.bounds.width
-                            let colWidth = screenWidth - 60.0
-                            
                             TimelineEventPill(
                                 event: event,
-                                columnWidth: colWidth,
+                                columnWidth: UIScreen.main.bounds.width - 60.0,
                                 opacity: viewModel.eventOpacity,
                                 viewModel: viewModel
                             )
                             .padding(.leading, 60)
                         }
-                        
-                        // FIXED: Resolved namespace collision
+                        // FIXED: Now sees shared component
                         if Foundation.Calendar.current.isDateInToday(selectedDate) {
                             LiveTimeIndicator(width: UIScreen.main.bounds.width - 60.0).padding(.leading, 60)
                         }
