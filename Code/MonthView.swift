@@ -7,11 +7,13 @@ struct MonthView: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
 
     private var monthDays: [Date] {
-        let calendar = Calendar.current
+        var calendar = Calendar.current
+        calendar.firstWeekday = viewModel.firstDayOfWeek // Feature: Dynamic Start of Week
+        
         let components = calendar.dateComponents([.year, .month], from: viewModel.anchorDate)
         guard let startOfMonth = calendar.date(from: components) else { return [] }
         let weekday = calendar.component(.weekday, from: startOfMonth)
-        let daysToAddBefore = (weekday - 1 + 7) % 7 
+        let daysToAddBefore = (weekday - calendar.firstWeekday + 7) % 7 
         let firstDay = calendar.date(byAdding: .day, value: -daysToAddBefore, to: startOfMonth)!
         return (0..<42).compactMap { calendar.date(byAdding: .day, value: $0, to: firstDay) }
     }
@@ -19,7 +21,8 @@ struct MonthView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                ForEach(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], id: \.self) { day in
+                let days = viewModel.firstDayOfWeek == 1 ? ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                ForEach(days, id: \.self) { day in
                     Text(day)
                         .font(DesignSystem.Typography.timeLabel)
                         .foregroundColor(.secondary)
@@ -52,9 +55,10 @@ struct MonthDayCell: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: 1) {
             HStack {
-                // Feature: Week Numbers 
-                if Calendar.current.component(.weekday, from: date) == Calendar.current.firstWeekday {
-                    Text("W\(Calendar.current.component(.weekOfYear, from: date))")
+                var calendar = Calendar.current
+                calendar.firstWeekday = viewModel.firstDayOfWeek
+                if calendar.component(.weekday, from: date) == calendar.firstWeekday {
+                    Text("W\(calendar.component(.weekOfYear, from: date))")
                         .font(.system(size: 8, weight: .bold))
                         .foregroundColor(.secondary.opacity(0.5))
                         .padding(.leading, 2)
@@ -70,20 +74,22 @@ struct MonthDayCell: View {
             .frame(maxWidth: .infinity, alignment: .trailing)
 
             ForEach(events) { event in
-                Text(event.title)
-                    .font(DesignSystem.Typography.eventPill)
-                    .lineLimit(1)
-                    .padding(.horizontal, 2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(event.displayColor.opacity(opacity))
-                    .foregroundColor(event.displayColor)
-                    .cornerRadius(2)
-                    .onTapGesture { viewModel.editingEvent = event }
-                    // Feature: Event Duplication Context Menu
-                    .contextMenu {
-                        Button { viewModel.eventToDuplicate = event } label: { Label("Duplicate", systemImage: "doc.on.doc") }
-                        Button(role: .destructive) { viewModel.deleteEvent(event) } label: { Label("Delete", systemImage: "trash") }
-                    }
+                HStack(spacing: 2) {
+                    if event.isBirthday { Text("🎁").font(.system(size: 8)) } // Feature: Birthday Icon
+                    Text(event.title)
+                        .font(DesignSystem.Typography.eventPill)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(event.displayColor.opacity(opacity))
+                .foregroundColor(event.displayColor)
+                .cornerRadius(2)
+                .onTapGesture { viewModel.editingEvent = event }
+                .contextMenu {
+                    Button { viewModel.eventToDuplicate = event } label: { Label("Duplicate", systemImage: "doc.on.doc") }
+                    Button(role: .destructive) { viewModel.deleteEvent(event) } label: { Label("Delete", systemImage: "trash") }
+                }
             }
             Spacer(minLength: 0)
         }
