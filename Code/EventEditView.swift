@@ -7,6 +7,7 @@ public struct EventEditView: View {
     
     var eventToEdit: AppEvent?
     var taskToEdit: AppReminder?
+    var initialDate: Date? // NEW: Supports Contextual creation
     
     @State private var isTask: Bool = false
     @State private var title: String = ""
@@ -147,10 +148,22 @@ public struct EventEditView: View {
             notes = t.notes ?? ""
             selectedID = t.listID
         } else {
+            // Setup default lists
             if isTask {
                 selectedID = viewModel.availableReminderLists.first?.calendarIdentifier ?? ""
             } else {
                 selectedID = viewModel.availableCalendars.first?.calendarIdentifier ?? ""
+            }
+            // Apply contextual Date routing if provided
+            if let target = initialDate {
+                // Set default time to Noon for tapped days
+                if let noon = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: target) {
+                    startDate = noon
+                    endDate = Calendar.current.date(byAdding: .hour, value: 1, to: noon) ?? noon
+                } else {
+                    startDate = target
+                    endDate = target
+                }
             }
         }
     }
