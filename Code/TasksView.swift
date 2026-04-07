@@ -4,9 +4,16 @@ struct TasksView: View {
     @ObservedObject var viewModel: CalendarViewModel
     let searchText: String
 
+    // Feature: Hide Completed Tasks
+    private var validTasks: [AppReminder] {
+        viewModel.filteredReminders.filter { task in
+            !task.isCompleted || !viewModel.hideCompletedTasks
+        }
+    }
+
     var body: some View {
         List {
-            ForEach(viewModel.filteredReminders) { reminder in
+            ForEach(validTasks) { reminder in
                 HStack(spacing: DesignSystem.Layout.densePadding) {
                     Image(systemName: reminder.isCompleted ? "checkmark.circle.fill" : "circle")
                         .foregroundColor(reminder.isCompleted ? .green : .secondary)
