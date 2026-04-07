@@ -52,9 +52,9 @@ struct SettingsView: View {
                 }
             }
             
-            Section(header: Text("Quick Templates")) {
+            Section(header: Text("Templates")) {
                 if viewModel.templates.isEmpty {
-                    Text("No templates saved").foregroundColor(.secondary).font(.caption)
+                    Text("No Quick Templates saved").foregroundColor(.secondary).font(.caption)
                 } else {
                     ForEach(viewModel.templates) { temp in
                         Text(temp.title)
