@@ -1,9 +1,7 @@
 import SwiftUI
-import Foundation
 
 struct MultiDayView: View {
     @ObservedObject var viewModel: CalendarViewModel
-    // FIXED: Correct generator type for sliders
     private let haptic = UISelectionFeedbackGenerator()
 
     var body: some View {
@@ -15,10 +13,9 @@ struct MultiDayView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 0) {
                         ForEach(viewModel.dateRangeArray, id: \.self) { date in
-                            let events = viewModel.groupedEvents[Foundation.Calendar.current.startOfDay(for: date)]?.filter {
+                            let events = viewModel.groupedEvents[Calendar.current.startOfDay(for: date)]?.filter {
                                 viewModel.searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)
                             } ?? []
-                            
                             DayColumnView(date: date, events: events, width: columnWidth, opacity: viewModel.eventOpacity, viewModel: viewModel)
                         }
                     }
@@ -36,8 +33,6 @@ struct MultiDayView: View {
             Divider()
             HStack(spacing: 15) {
                 Text("\(Int(viewModel.daysToDisplay)) Days").font(DesignSystem.Typography.timeLabel).monospacedDigit().frame(width: 60)
-                
-                // FIXED: Explicitly unrolled binding logic to prevent AST failure
                 Slider(value: Binding<Double>(
                     get: { Double(viewModel.daysToDisplay) },
                     set: { 
@@ -54,7 +49,7 @@ struct MultiDayView: View {
     }
 }
 
-private let searchText = "" 
+private let searchText = ""
 
 struct DayColumnView: View {
     let date: Date; let events: [AppEvent]; let width: CGFloat; let opacity: Double; @ObservedObject var viewModel: CalendarViewModel
@@ -70,7 +65,7 @@ struct DayColumnView: View {
                     let sharedWidth = width / CGFloat(max(1, overlapping.count))
                     TimelineEventPill(event: event, columnWidth: sharedWidth, opacity: opacity, viewModel: viewModel).offset(x: CGFloat(myIndex) * sharedWidth)
                 }
-                if Foundation.Calendar.current.isDateInToday(date) { LiveTimeIndicator(width: width) }
+                if Calendar.current.isDateInToday(date) { LiveTimeIndicator(width: width) }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
@@ -81,7 +76,7 @@ struct DayColumnView: View {
 struct TimelineEventPill: View {
     let event: AppEvent; let columnWidth: CGFloat; let opacity: Double; @ObservedObject var viewModel: CalendarViewModel
     private var geometry: (top: CGFloat, height: CGFloat) {
-        let cal = Foundation.Calendar.current
+        let cal = Calendar.current
         let startMins = Double(cal.component(.hour, from: event.startDate) * 60 + cal.component(.minute, from: event.startDate))
         let durationMins = Double(event.durationInMinutes)
         let hourHeight = Double(DesignSystem.Layout.timelineHourHeight)
