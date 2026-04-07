@@ -14,15 +14,12 @@ struct AgendaView: View {
 
     var body: some View {
         List {
-            // Added explicit id: \.id to prevent SwiftUI from falling back to the Binding initializer
             ForEach(upcomingEvents, id: \.id) { event in
                 VStack(alignment: .leading, spacing: DesignSystem.Layout.densePadding) {
                     HStack(spacing: 6) {
                         RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
                         VStack(alignment: .leading, spacing: 0) {
                             Text(event.title).font(DesignSystem.Typography.eventPill).lineLimit(1)
-                            
-                            // Updated to safe, universal iOS 15+ formatters
                             Text(event.startDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
                                 .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
                         }
@@ -30,6 +27,8 @@ struct AgendaView: View {
                     }
                 }
                 .padding(.vertical, 2)
+                .contentShape(Rectangle())
+                .onTapGesture { viewModel.editingEvent = event }
             }
         }
         .listStyle(.plain)
