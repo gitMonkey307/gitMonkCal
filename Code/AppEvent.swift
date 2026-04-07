@@ -2,9 +2,7 @@ import Foundation
 import SwiftUI
 import UIKit
 
-// Project: gitMonkCal
-// Company: gitMonk Interactive
-
+// gitMonk Interactive Standard Model
 public enum EventSource: String, Codable {
     case eventKit, reminders, local
 }
