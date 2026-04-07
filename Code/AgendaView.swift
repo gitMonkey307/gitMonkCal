@@ -12,7 +12,8 @@ struct AgendaView: View {
 
     var body: some View {
         List {
-            ForEach(upcomingEvents.prefix(100)) { event in
+            // Re-cast prefix slice to Array to fix SwiftUI type-inference bug
+            ForEach(Array(upcomingEvents.prefix(100))) { event in
                 VStack(alignment: .leading, spacing: DesignSystem.Layout.densePadding) {
                     HStack(spacing: 6) {
                         RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
