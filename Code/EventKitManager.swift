@@ -80,15 +80,43 @@ public class EventKitManager: ObservableObject {
             }
         }
         
-        return AppEvent(id: ek.eventIdentifier, title: ek.title ?? "Untitled", startDate: ek.startDate, endDate: ek.endDate, isAllDay: ek.isAllDay, location: ek.location, notes: ek.notes, alarms: alarmOffsets, recurrence: rec, source: .eventKit, calendarID: ek.calendar.calendarIdentifier, colorHex: ek.calendar.cgColor.toHexString() ?? "#007AFF")
+        // FIXED: Explicit variable extraction to prevent compiler AST timeout
+        let safeTitle = ek.title ?? "Untitled"
+        let safeHex = ek.calendar.cgColor.toHexString() ?? "#007AFF"
+        
+        return AppEvent(
+            id: ek.eventIdentifier,
+            title: safeTitle,
+            startDate: ek.startDate,
+            endDate: ek.endDate,
+            isAllDay: ek.isAllDay,
+            location: ek.location,
+            notes: ek.notes,
+            alarms: alarmOffsets,
+            recurrence: rec,
+            source: .eventKit,
+            calendarID: ek.calendar.calendarIdentifier,
+            colorHex: safeHex
+        )
     }
     
     nonisolated public static func mapToAppReminder(_ ek: EKReminder) -> AppReminder {
-        AppReminder(id: ek.calendarItemIdentifier, title: ek.title ?? "Task", dueDate: ek.dueDateComponents?.date, isCompleted: ek.isCompleted, listID: ek.calendar.calendarIdentifier, colorHex: ek.calendar.cgColor.toHexString() ?? "#34C759")
+        // FIXED: Extracted explicit variables and added ek.notes mapping
+        let safeTitle = ek.title ?? "Task"
+        let safeHex = ek.calendar.cgColor.toHexString() ?? "#34C759"
+        
+        return AppReminder(
+            id: ek.calendarItemIdentifier,
+            title: safeTitle,
+            dueDate: ek.dueDateComponents?.date,
+            notes: ek.notes,
+            isCompleted: ek.isCompleted,
+            listID: ek.calendar.calendarIdentifier,
+            colorHex: safeHex
+        )
     }
 
     public func saveEvent(id: String? = nil, title: String, start: Date, end: Date, isAllDay: Bool, location: String?, notes: String?, calendarID: String, alarms: [TimeInterval], recurrenceType: RecurrenceType) async throws {
-        // FIXED: Cleaned up instantiation logic to prevent compiler AST timeout
         let event: EKEvent
         if let id = id, let existing = store.event(withIdentifier: id) {
             event = existing
@@ -122,7 +150,6 @@ public class EventKitManager: ObservableObject {
     }
     
     public func saveTask(id: String? = nil, title: String, dueDate: Date, notes: String?, listID: String) async throws {
-        // FIXED: Cleaned up instantiation logic to prevent compiler AST timeout
         let task: EKReminder
         if let id = id, let existing = store.calendarItem(withIdentifier: id) as? EKReminder {
             task = existing
