@@ -11,7 +11,7 @@ struct ContentView: View {
         } detail: {
             detailStack
         }
-        // GLOBAL ROUTING
+        // FIXED: Restored Global Routing
         .sheet(isPresented: $viewModel.isAddingNew) { EventEditView(viewModel: viewModel) }
         .sheet(item: $viewModel.editingEvent) { ev in EventEditView(viewModel: viewModel, eventToEdit: ev) }
         .sheet(item: $viewModel.editingTask) { tk in EventEditView(viewModel: viewModel, taskToEdit: tk) }
@@ -33,8 +33,7 @@ struct ContentView: View {
                     Toggle(cal.title, isOn: Binding(
                         get: { viewModel.visibleCalendarIDs.contains(cal.calendarIdentifier) },
                         set: { _ in Task { await viewModel.toggleCalendarVisibility(calendarID: cal.calendarIdentifier) } }
-                    ))
-                    .tint(Color(cgColor: cal.cgColor))
+                    )).tint(Color(cgColor: cal.cgColor))
                 }
             }
             Section("Settings") {
@@ -45,33 +44,40 @@ struct ContentView: View {
     
     private var detailStack: some View {
         ZStack(alignment: .bottomTrailing) {
-            Group {
-                switch viewModel.selectedView {
-                case "month": MonthView(viewModel: viewModel, searchText: viewModel.searchText)
-                case "week": MultiDayView(viewModel: viewModel)
-                case "day": DayView(viewModel: viewModel, searchText: viewModel.searchText)
-                case "agenda": AgendaView(viewModel: viewModel, searchText: viewModel.searchText)
-                case "tasks": TasksView(viewModel: viewModel, searchText: viewModel.searchText)
-                case "year": YearView(viewModel: viewModel)
-                case "settings": SettingsView(viewModel: viewModel)
-                default: MonthView(viewModel: viewModel, searchText: viewModel.searchText)
-                }
-            }
-            .searchable(text: $viewModel.searchText)
-            .navigationTitle(viewModel.selectedView.capitalized)
-            .navigationBarTitleDisplayMode(.inline)
+            mainContent
+                .searchable(text: $viewModel.searchText)
+                .navigationTitle(viewModel.selectedView.capitalized)
+                .navigationBarTitleDisplayMode(.inline)
             
             if viewModel.selectedView != "settings" {
-                Button { viewModel.isAddingNew = true } label: {
-                    Image(systemName: "plus")
-                        .font(.title2.bold())
-                        .foregroundColor(.white)
-                        .frame(width: 56, height: 56)
-                        .background(Circle().fill(Color.blue).shadow(radius: 4))
-                }
-                .padding(24)
+                floatingActionButton
             }
         }
+    }
+    
+    @ViewBuilder
+    private var mainContent: some View {
+        switch viewModel.selectedView {
+        case "month": MonthView(viewModel: viewModel, searchText: viewModel.searchText)
+        case "week": MultiDayView(viewModel: viewModel)
+        case "day": DayView(viewModel: viewModel, searchText: viewModel.searchText)
+        case "agenda": AgendaView(viewModel: viewModel, searchText: viewModel.searchText)
+        case "tasks": TasksView(viewModel: viewModel, searchText: viewModel.searchText)
+        case "year": YearView(viewModel: viewModel)
+        case "settings": SettingsView(viewModel: viewModel)
+        default: MonthView(viewModel: viewModel, searchText: viewModel.searchText)
+        }
+    }
+    
+    private var floatingActionButton: some View {
+        Button { viewModel.isAddingNew = true } label: {
+            Image(systemName: "plus")
+                .font(.title2.bold())
+                .foregroundColor(.white)
+                .frame(width: 56, height: 56)
+                .background(Circle().fill(Color.blue).shadow(radius: 4))
+        }
+        .padding(24)
     }
 }
 
