@@ -9,19 +9,21 @@ struct AgendaView: View {
             $0.startDate >= Date() && (searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText))
         }.sorted { $0.startDate < $1.startDate }
         
-        // Safely cast the slice to a strict Array here so SwiftUI doesn't panic
         return Array(filtered.prefix(100))
     }
 
     var body: some View {
         List {
-            ForEach(upcomingEvents) { event in
+            // Added explicit id: \.id to prevent SwiftUI from falling back to the Binding initializer
+            ForEach(upcomingEvents, id: \.id) { event in
                 VStack(alignment: .leading, spacing: DesignSystem.Layout.densePadding) {
                     HStack(spacing: 6) {
                         RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
                         VStack(alignment: .leading, spacing: 0) {
                             Text(event.title).font(DesignSystem.Typography.eventPill).lineLimit(1)
-                            Text(event.startDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour(.defaultDigitsAMPM).minute(.twoDigits)))
+                            
+                            // Updated to safe, universal iOS 15+ formatters
+                            Text(event.startDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
                                 .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
                         }
                         Spacer()
