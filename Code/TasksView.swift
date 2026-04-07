@@ -5,7 +5,6 @@ struct TasksView: View {
     let searchText: String
 
     private var validTasks: [AppReminder] {
-        // FIXED: Accessing filteredReminders from VM correctly
         viewModel.filteredReminders.filter { task in
             !task.isCompleted || !viewModel.hideCompletedTasks
         }
@@ -22,7 +21,7 @@ struct TasksView: View {
                     
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 2) {
-                            if reminder.priority > 0 && reminder.priority < 5 { Text("!!").font(.caption).foregroundColor(.red).bold() }
+                            if reminder.priority > 0 && reminder.priority < 5 { Text("!!!").foregroundColor(.red).bold().font(.caption) }
                             Text(reminder.title).font(DesignSystem.Typography.eventPill).strikethrough(reminder.isCompleted)
                         }
                         if let dueDate = reminder.dueDate {
@@ -35,6 +34,9 @@ struct TasksView: View {
                 .padding(.vertical, 2)
                 .contentShape(Rectangle())
                 .onTapGesture { viewModel.editingTask = reminder }
+                .swipeActions {
+                    Button(role: .destructive) { viewModel.deleteTask(reminder) } label: { Label("Delete", systemImage: "trash") }
+                }
             }
         }
         .listStyle(.plain)
