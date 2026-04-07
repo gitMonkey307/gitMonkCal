@@ -34,17 +34,19 @@ struct MonthView: View {
                     let events = viewModel.groupedEvents[Calendar.current.startOfDay(for: date)]?.filter {
                         searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)
                     } ?? []
-                    MonthDayCell(date: date, events: events)
+                    MonthDayCell(date: date, events: events, opacity: viewModel.eventOpacity)
                 }
             }
             Spacer()
         }
+        .refreshable { await viewModel.refreshData() }
     }
 }
 
 struct MonthDayCell: View {
     let date: Date
     let events: [AppEvent]
+    let opacity: Double
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 1) {
@@ -62,7 +64,7 @@ struct MonthDayCell: View {
                     .lineLimit(1)
                     .padding(.horizontal, 2)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(event.displayColor.opacity(0.3))
+                    .background(event.displayColor.opacity(opacity))
                     .foregroundColor(event.displayColor)
                     .cornerRadius(2)
             }
