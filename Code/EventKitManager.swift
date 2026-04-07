@@ -67,21 +67,32 @@ public class EventKitManager: ObservableObject {
         }.value
     }
 
-    nonisolated private static func mapToAppEvent(_ ek: EKEvent) -> AppEvent {
+    nonisolated public static func mapToAppEvent(_ ek: EKEvent) -> AppEvent {
         AppEvent(id: ek.eventIdentifier, title: ek.title ?? "Untitled", startDate: ek.startDate, endDate: ek.endDate, isAllDay: ek.isAllDay, location: ek.location, notes: ek.notes, hasAlarms: ek.hasAlarms, source: .eventKit, calendarID: ek.calendar.calendarIdentifier, colorHex: ek.calendar.cgColor.toHexString() ?? "#007AFF")
     }
     
-    nonisolated private static func mapToAppReminder(_ ek: EKReminder) -> AppReminder {
+    nonisolated public static func mapToAppReminder(_ ek: EKReminder) -> AppReminder {
         AppReminder(id: ek.calendarItemIdentifier ?? UUID().uuidString, title: ek.title ?? "Task", dueDate: ek.dueDateComponents?.date, isCompleted: ek.isCompleted, listID: ek.calendar.calendarIdentifier, colorHex: ek.calendar.cgColor.toHexString() ?? "#34C759")
     }
 
     // CREATE / UPDATE
-    public func saveEvent(title: String, start: Date, end: Date, isAllDay: Bool, location: String?, notes: String?, calendarID: String, alarms: [TimeInterval]) async throws {
+    public func saveEvent(title: String, start: Date, end: Date, isAllDay: Bool, location: String?, notes: String?, calendarID: String, alarms: [TimeInterval], recurrenceType: RecurrenceType) async throws {
         let event = EKEvent(eventStore: store)
         event.title = title; event.startDate = start; event.endDate = end; event.isAllDay = isAllDay
         event.location = location; event.notes = notes
         event.calendar = store.calendar(withIdentifier: calendarID) ?? store.defaultCalendarForNewEvents
+        
         for offset in alarms { event.addAlarm(EKAlarm(relativeOffset: offset)) }
+        
+        if recurrenceType != .none {
+            let freq: EKRecurrenceFrequency = {
+                switch recurrenceType {
+                case .daily: return .daily; case .weekly: return .weekly; case .monthly: return .monthly; case .yearly: return .yearly; default: return .daily
+                }
+            }()
+            event.addRecurrenceRule(EKRecurrenceRule(recurrenceWith: freq, interval: 1, end: nil))
+        }
+        
         try store.save(event, span: .thisEvent)
     }
     
@@ -97,6 +108,10 @@ public class EventKitManager: ObservableObject {
         guard let ek = store.calendarItem(withIdentifier: reminder.id) as? EKReminder else { return }
         ek.isCompleted.toggle()
         try store.save(ek, commit: true)
+    }
+    
+    public func deleteEvent(identifier: String) throws {
+        if let event = store.event(withIdentifier: identifier) { try store.remove(event, span: .thisEvent) }
     }
 }
 
