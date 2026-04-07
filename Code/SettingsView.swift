@@ -34,13 +34,22 @@ struct SettingsView: View {
                     Spacer()
                     Slider(value: $viewModel.eventOpacity, in: 0.1...1.0, step: 0.1)
                 }
+                
+                Picker("First Day of Week", selection: Binding(
+                    get: { viewModel.firstDayOfWeek },
+                    set: { val in viewModel.updateSettings(hideTasks: viewModel.hideCompletedTasks, duration: viewModel.defaultDuration, themeHex: viewModel.themeColorHex, firstDay: val) }
+                )) {
+                    Text("Sunday").tag(1)
+                    Text("Monday").tag(2)
+                }
+                
                 Toggle("Hide Completed Tasks", isOn: Binding(
                     get: { viewModel.hideCompletedTasks },
-                    set: { val in viewModel.updateSettings(hideTasks: val, duration: viewModel.defaultDuration, themeHex: viewModel.themeColorHex); Task { await viewModel.refreshData() } }
+                    set: { val in viewModel.updateSettings(hideTasks: val, duration: viewModel.defaultDuration, themeHex: viewModel.themeColorHex, firstDay: viewModel.firstDayOfWeek); Task { await viewModel.refreshData() } }
                 ))
                 Picker("Default Event Duration", selection: Binding(
                     get: { viewModel.defaultDuration },
-                    set: { val in viewModel.updateSettings(hideTasks: viewModel.hideCompletedTasks, duration: val, themeHex: viewModel.themeColorHex) }
+                    set: { val in viewModel.updateSettings(hideTasks: viewModel.hideCompletedTasks, duration: val, themeHex: viewModel.themeColorHex, firstDay: viewModel.firstDayOfWeek) }
                 )) {
                     Text("15 Mins").tag(15); Text("30 Mins").tag(30); Text("1 Hour").tag(60); Text("2 Hours").tag(120)
                 }
@@ -49,7 +58,7 @@ struct SettingsView: View {
             Section("App Theme") {
                 Picker("Accent Color", selection: Binding(
                     get: { viewModel.themeColorHex },
-                    set: { val in viewModel.updateSettings(hideTasks: viewModel.hideCompletedTasks, duration: viewModel.defaultDuration, themeHex: val) }
+                    set: { val in viewModel.updateSettings(hideTasks: viewModel.hideCompletedTasks, duration: viewModel.defaultDuration, themeHex: val, firstDay: viewModel.firstDayOfWeek) }
                 )) {
                     Text("Blue").tag("#007AFF")
                     Text("Red").tag("#FF3B30")
