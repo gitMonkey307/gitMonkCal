@@ -11,7 +11,6 @@ struct AgendaView: View {
     @ObservedObject var viewModel: CalendarViewModel
     let searchText: String
 
-    // Feature: Data sorted and grouped by actual Day Headers
     private var groupedItems: [(Date, [UnifiedAgendaItem])] {
         var items: [UnifiedAgendaItem] = []
         let validEvents = viewModel.groupedEvents.values.flatMap { $0 }.filter { $0.startDate >= Date() && (searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)) }
@@ -42,7 +41,6 @@ struct AgendaView: View {
     }
 }
 
-// STRICT TYPING & AST ISOLATION: Sub-struct for Swipe Actions to prevent compiler crash
 struct AgendaRowView: View {
     let item: UnifiedAgendaItem
     @ObservedObject var viewModel: CalendarViewModel
@@ -51,50 +49,9 @@ struct AgendaRowView: View {
         Group {
             switch item {
             case .event(let event):
-                VStack(alignment: .leading, spacing: DesignSystem.Layout.densePadding) {
-                    HStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
-                        VStack(alignment: .leading, spacing: 0) {
-                            HStack(spacing: 4) {
-                                if event.isBirthday { Text("🎁").font(.system(size: 10)) }
-                                Text(event.title).font(DesignSystem.Typography.eventPill).lineLimit(1)
-                            }
-                            Text(event.startDate.formatted(.dateTime.hour().minute()))
-                                .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
-                        }
-                        Spacer()
-                    }
-                }
-                .padding(.vertical, 2)
-                .contentShape(Rectangle())
-                .onTapGesture { viewModel.editingEvent = event }
-                .contextMenu {
-                    Button { viewModel.eventToDuplicate = event } label: { Label("Duplicate", systemImage: "doc.on.doc") }
-                }
-                
+                eventRow(event)
             case .task(let task):
-                HStack(spacing: 6) {
-                    Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(task.isCompleted ? .green : .secondary)
-                        .font(.title3)
-                        .onTapGesture { Task { await viewModel.toggleReminderCompleted(task) } }
-                    
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack(spacing: 2) {
-                            if task.priority > 0 && task.priority < 5 { Text("!!").font(.caption).foregroundColor(.red).bold() } // Feature: Priority Marker
-                            Text(task.title).font(DesignSystem.Typography.eventPill).strikethrough(task.isCompleted)
-                        }
-                        if let dueDate = task.dueDate {
-                            Text(dueDate.formatted(.dateTime.hour().minute()))
-                                .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
-                        }
-                    }
-                    Spacer()
-                    RoundedRectangle(cornerRadius: 2).fill(task.displayColor).frame(width: 4)
-                }
-                .padding(.vertical, 2)
-                .contentShape(Rectangle())
-                .onTapGesture { viewModel.editingTask = task }
+                taskRow(task)
             }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -105,6 +62,69 @@ struct AgendaRowView: View {
                 Button { Task { await viewModel.toggleReminderCompleted(t) } } label: { Label("Complete", systemImage: "checkmark.circle.fill") }.tint(.green)
             }
         }
+    }
+
+    @ViewBuilder
+    private func eventRow(_ event: AppEvent) -> some View {
+        HStack(spacing: 6) {
+            if event.isAllDay {
+                // Feature: BC2 "Dressed" All Day Events
+                Text(event.title)
+                    .font(DesignSystem.Typography.eventPill)
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(event.displayColor.cornerRadius(4))
+            } else {
+                RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 4) {
+                        if event.isBirthday { Text("🎁").font(.system(size: 10)) }
+                        Text(event.title).font(DesignSystem.Typography.eventPill).lineLimit(1)
+                    }
+                    Text(event.startDate.formatted(.dateTime.hour().minute()))
+                        .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
+                }
+                Spacer()
+            }
+        }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+        .onTapGesture { viewModel.editingEvent = event }
+        .contextMenu {
+            Button { viewModel.eventToDuplicate = event } label: { Label("Duplicate", systemImage: "doc.on.doc") }
+        }
+    }
+
+    @ViewBuilder
+    private func taskRow(_ task: AppReminder) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                .foregroundColor(task.isCompleted ? .green : .secondary)
+                .font(.title3)
+                .onTapGesture { Task { await viewModel.toggleReminderCompleted(task) } }
+            
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 2) {
+                    if task.priority > 0 && task.priority < 5 { Text("!!").font(.caption).foregroundColor(.red).bold() }
+                    Text(task.title).font(DesignSystem.Typography.eventPill).strikethrough(task.isCompleted)
+                }
+                // Feature: Task Note preview in Agenda
+                if let notes = task.notes, !notes.isEmpty {
+                    Text(notes).font(.system(size: 8)).lineLimit(1).foregroundColor(.secondary)
+                }
+                if let dueDate = task.dueDate {
+                    Text(dueDate.formatted(.dateTime.hour().minute()))
+                        .font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
+                }
+            }
+            Spacer()
+            RoundedRectangle(cornerRadius: 2).fill(task.displayColor).frame(width: 4)
+        }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+        .onTapGesture { viewModel.editingTask = task }
     }
     
     private func delete() {
