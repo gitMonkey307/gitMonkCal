@@ -20,8 +20,8 @@ targets:
       GENERATE_INFOPLIST_FILE: YES
       PRODUCT_BUNDLE_IDENTIFIER: com.gitmonk.Calendar
       INFOPLIST_KEY_UILaunchScreen_Generation: YES
-      INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "gitMonkCal needs full access to manage your schedule."
-      INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "gitMonkCal needs access to sync your tasks and to-dos."
+      INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "gitMonkCal needs access to manage your schedule."
+      INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "gitMonkCal needs access to sync your tasks."
 
   AgendaWidget:
     type: app-extension
