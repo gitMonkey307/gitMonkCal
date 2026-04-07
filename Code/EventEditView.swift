@@ -26,7 +26,6 @@ public struct EventEditView: View {
         return isTask ? "New Task" : "New Event"
     }
     
-    // FIXED: Explicitly extracted to avoid compiler complexity timeouts
     private var isSaveDisabled: Bool {
         return title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving
     }
@@ -56,7 +55,6 @@ public struct EventEditView: View {
         }
     }
     
-    // MARK: - Modular Form Components
     @ViewBuilder
     private var typeSection: some View {
         if eventToEdit == nil && taskToEdit == nil {
@@ -130,7 +128,6 @@ public struct EventEditView: View {
         }
     }
     
-    // MARK: - Logic
     private func setupInitialState() {
         if let e = eventToEdit {
             isTask = false
@@ -147,10 +144,9 @@ public struct EventEditView: View {
             isTask = true
             title = t.title
             startDate = t.dueDate ?? Date()
-            notes = t.notes ?? "" // FIXED: Uses the new AppReminder.notes property
+            notes = t.notes ?? ""
             selectedID = t.listID
         } else {
-            // FIXED: Explicit unrolling of the ternary to avoid AST timeout
             if isTask {
                 selectedID = viewModel.availableReminderLists.first?.calendarIdentifier ?? ""
             } else {
