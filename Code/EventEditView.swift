@@ -5,6 +5,8 @@ import Foundation
 public struct EventEditView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: CalendarViewModel
+    @FocusState private var isNotesFocused: Bool // Edge-case: Keyboard Trapping
+    
     var eventToEdit: AppEvent?; var taskToEdit: AppReminder?; var initialDate: Date?; var eventToDuplicate: AppEvent?
     
     @State private var isTask: Bool = false
@@ -20,6 +22,15 @@ public struct EventEditView: View {
     @State private var taskPriority: Int = 0
     @State private var alarms: [TimeInterval] = []
     @State private var isSaving = false
+
+    private var navTitle: String {
+        if eventToDuplicate != nil { return "Duplicate Event" }
+        if eventToEdit != nil { return "Edit Event" }
+        if taskToEdit != nil { return "Edit Task" }
+        return isTask ? "New Task" : "New Event"
+    }
+    
+    private var isSaveDisabled: Bool { title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving }
 
     public var body: some View {
         NavigationView {
@@ -41,13 +52,20 @@ public struct EventEditView: View {
                 timeSection
                 if !isTask { recurrenceSection; alarmSection }
                 calendarListSection
-                notesSection
+                Section("Notes") {
+                    TextEditor(text: $notes)
+                        .frame(minHeight: 100)
+                        .focused($isNotesFocused) // Keyboard logic
+                }
                 actionSection
             }
-            .navigationTitle(eventToEdit != nil ? "Edit" : "New Entry")
+            .navigationTitle(navTitle)
             .toolbar {
+                ToolbarItem(placement: .keyboard) {
+                    Button("Done") { isNotesFocused = false }
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { Task { await save() } }.disabled(title.isEmpty || isSaving)
+                    Button("Save") { Task { await save() } }.disabled(isSaveDisabled)
                 }
             }
             .onAppear(perform: setupInitialState)
@@ -92,7 +110,6 @@ public struct EventEditView: View {
     @ViewBuilder private var recurrenceSection: some View { Section("Repeat") { Picker("Interval", selection: $recurrenceType) { ForEach(RecurrenceType.allCases) { Text($0.displayName).tag($0) } } } }
     @ViewBuilder private var alarmSection: some View { Section("Alarms") { Button("Add Alarm") { alarms.append(-900) }; ForEach(0..<alarms.count, id: \.self) { i in HStack { Text("\(Int(abs(alarms[i])/60))m before"); Spacer(); Button(role: .destructive) { alarms.remove(at: i) } label: { Image(systemName: "minus.circle") } } } } }
     @ViewBuilder private var calendarListSection: some View { Section(isTask ? "List" : "Calendar") { Picker("Select", selection: $selectedID) { if isTask { ForEach(viewModel.availableReminderLists, id: \.calendarIdentifier) { Text($0.title).tag($0.calendarIdentifier) } } else { ForEach(viewModel.availableCalendars, id: \.calendarIdentifier) { Text($0.title).tag($0.calendarIdentifier) } } } } }
-    @ViewBuilder private var notesSection: some View { Section("Notes") { TextEditor(text: $notes).frame(minHeight: 100) } }
     @ViewBuilder private var recentLocationsPicker: some View { if !viewModel.recentLocations.isEmpty && location.isEmpty { ScrollView(.horizontal, showsIndicators: false) { HStack { ForEach(viewModel.recentLocations, id: \.self) { loc in Button(loc) { location = loc }.font(.caption).padding(6).background(Color.secondary.opacity(0.1)).cornerRadius(6) } } } } }
     @ViewBuilder private var actionSection: some View { Section { Group { if let e = eventToEdit { ShareLink(item: "Event: \(title)\nAt: \(location)\nDate: \(startDate.formatted())") { Label("Share Event", systemImage: "square.and.arrow.up") }; if !location.isEmpty, let enc = location.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed), let url = URL(string: "http://maps.apple.com/?q=\(enc)") { Button { UIApplication.shared.open(url) } label: { Label("Open in Maps", systemImage: "map") } } }; if eventToEdit != nil || taskToEdit != nil { Button("Delete Entry", role: .destructive) { if let e = eventToEdit { viewModel.deleteEvent(e) } else if let t = taskToEdit { viewModel.deleteTask(t) }; dismiss() }.frame(maxWidth: .infinity, alignment: .center) } } } }
 }
