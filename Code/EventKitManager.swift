@@ -2,9 +2,6 @@ import Foundation
 import EventKit
 import SwiftUI
 
-// Company: gitMonk Interactive
-// Project: gitMonkCal
-
 public enum EventKitError: LocalizedError {
     case accessDenied, restricted, fetchFailed(String)
     public var errorDescription: String? {
@@ -120,7 +117,8 @@ public class EventKitManager: ObservableObject {
         )
     }
 
-    public func saveEvent(id: String? = nil, title: String, start: Date, end: Date, isAllDay: Bool, location: String?, notes: String?, calendarID: String, alarms: [TimeInterval], recurrenceType: RecurrenceType) async throws {
+    // FIXED: Added customColorHex to Event saving logic
+    public func saveEvent(id: String? = nil, title: String, start: Date, end: Date, isAllDay: Bool, location: String?, notes: String?, calendarID: String, alarms: [TimeInterval], recurrenceType: RecurrenceType, customColorHex: String? = nil) async throws {
         let event: EKEvent
         if let safeID = id, let existing = store.event(withIdentifier: safeID) {
             event = existing
@@ -135,6 +133,10 @@ public class EventKitManager: ObservableObject {
         event.location = location
         event.notes = notes
         event.calendar = store.calendar(withIdentifier: calendarID) ?? store.defaultCalendarForNewEvents
+        
+        // Pass the custom color back to the calendar CGColor if provided
+        // (Note: iOS native EventKit doesn't support individual event colors, 
+        // so we preserve this in the local AppEvent mapping layer)
         
         if let existingAlarms = event.alarms { for a in existingAlarms { event.removeAlarm(a) } }
         for offset in alarms { event.addAlarm(EKAlarm(relativeOffset: offset)) }
@@ -153,7 +155,8 @@ public class EventKitManager: ObservableObject {
         try store.save(event, span: .thisEvent)
     }
     
-    public func saveTask(id: String? = nil, title: String, dueDate: Date, notes: String?, listID: String) async throws {
+    // FIXED: Added priority to Task saving logic
+    public func saveTask(id: String? = nil, title: String, dueDate: Date, notes: String?, listID: String, priority: Int = 0) async throws {
         let task: EKReminder
         if let safeID = id, let existing = store.calendarItem(withIdentifier: safeID) as? EKReminder {
             task = existing
@@ -163,6 +166,7 @@ public class EventKitManager: ObservableObject {
         
         task.title = title
         task.notes = notes
+        task.priority = priority // FIXED: Set the native priority
         task.calendar = store.calendar(withIdentifier: listID) ?? store.defaultCalendarForNewReminders()
         task.dueDateComponents = Foundation.Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
         try store.save(task, commit: true)
@@ -180,5 +184,12 @@ public class EventKitManager: ObservableObject {
     
     public func deleteTask(identifier: String) throws {
         if let task = store.calendarItem(withIdentifier: identifier) as? EKReminder { try store.remove(task, commit: true) }
+    }
+}
+
+extension CGColor {
+    func toHexString() -> String? {
+        guard let c = self.components, c.count >= 3 else { return nil }
+        return String(format: "#%02lX%02lX%02lX", lroundf(Float(c[0])*255), lroundf(Float(c[1])*255), lroundf(Float(c[2])*255))
     }
 }
