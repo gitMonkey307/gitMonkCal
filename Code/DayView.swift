@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 struct DayView: View {
     @ObservedObject var viewModel: CalendarViewModel
@@ -18,23 +19,30 @@ struct DayView: View {
             if viewModel.isLoading {
                 ProgressView()
             } else {
-                let events = viewModel.groupedEvents[Calendar.current.startOfDay(for: selectedDate)]?.filter {
+                // FIXED: Resolved namespace collision
+                let events = viewModel.groupedEvents[Foundation.Calendar.current.startOfDay(for: selectedDate)]?.filter {
                     searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)
                 } ?? []
 
                 ScrollView {
                     ZStack(alignment: .top) {
                         timelineGrid
+                        
                         ForEach(events) { event in
+                            let screenWidth = UIScreen.main.bounds.width
+                            let colWidth = screenWidth - 60.0
+                            
                             TimelineEventPill(
                                 event: event,
-                                columnWidth: UIScreen.main.bounds.width - 60.0,
+                                columnWidth: colWidth,
                                 opacity: viewModel.eventOpacity,
                                 viewModel: viewModel
                             )
                             .padding(.leading, 60)
                         }
-                        if Calendar.current.isDateInToday(selectedDate) {
+                        
+                        // FIXED: Resolved namespace collision
+                        if Foundation.Calendar.current.isDateInToday(selectedDate) {
                             LiveTimeIndicator(width: UIScreen.main.bounds.width - 60.0).padding(.leading, 60)
                         }
                     }
