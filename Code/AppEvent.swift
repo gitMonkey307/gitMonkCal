@@ -1,8 +1,19 @@
 import Foundation
 import SwiftUI
+import UIKit
+
+// Project: gitMonkCal
+// Company: gitMonk Interactive
 
 public enum EventSource: String, Codable {
     case eventKit, reminders, local
+}
+
+public enum UnifiedAgendaItem: Identifiable {
+    case event(AppEvent)
+    case task(AppReminder)
+    public var id: String { switch self { case .event(let e): return "e_" + e.id; case .task(let t): return "t_" + t.id } }
+    public var sortDate: Date { switch self { case .event(let e): return e.startDate; case .task(let t): return t.dueDate ?? Date.distantFuture } }
 }
 
 public struct EventTemplate: Identifiable, Codable {
@@ -44,7 +55,7 @@ public struct AppEvent: Identifiable, Hashable, Codable {
     }
 
     public var displayColor: Color {
-        if let custom = customColorHex { return Color(custom) ?? Color(colorHex) ?? .blue }
+        if let custom = customColorHex, let c = Color(custom) { return c }
         return Color(colorHex) ?? .blue
     }
     
@@ -53,8 +64,8 @@ public struct AppEvent: Identifiable, Hashable, Codable {
         return components.minute ?? 0
     }
     
-    // Feature: Overlap Detection logic
     public func overlaps(with other: AppEvent) -> Bool {
+        if isAllDay || other.isAllDay { return false }
         return startDate < other.endDate && other.startDate < endDate
     }
 }
@@ -80,11 +91,12 @@ extension Color {
         self.init(red: Double((rgb & 0xFF0000) >> 16) / 255.0, green: Double((rgb & 0x00FF00) >> 8) / 255.0, blue: Double(rgb & 0x0000FF) / 255.0)
     }
 
-    // FIXED: Robust Hex serialization for custom highlights
     func toHex() -> String? {
         let uic = UIColor(self)
         var r: CGFloat = 0; var g: CGFloat = 0; var b: CGFloat = 0; var a: CGFloat = 0
-        uic.getRed(&r, green: &g, blue: &b, alpha: &a)
-        return String(format: "#%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
+        if uic.getRed(&r, green: &g, blue: &b, alpha: &a) {
+            return String(format: "#%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
+        }
+        return nil
     }
 }
