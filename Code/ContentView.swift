@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var viewModel: CalendarViewModel
-    @State private var showingEventEdit = false
     @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
@@ -12,7 +11,10 @@ struct ContentView: View {
         } detail: {
             detailStack
         }
-        .sheet(isPresented: $showingEventEdit) { EventEditView(viewModel: viewModel) }
+        // GLOBAL ROUTING
+        .sheet(isPresented: $viewModel.isAddingNew) { EventEditView(viewModel: viewModel) }
+        .sheet(item: $viewModel.editingEvent) { ev in EventEditView(viewModel: viewModel, eventToEdit: ev) }
+        .sheet(item: $viewModel.editingTask) { tk in EventEditView(viewModel: viewModel, taskToEdit: tk) }
         .task { await viewModel.requestAccessAndFetch() }
     }
     
@@ -32,7 +34,6 @@ struct ContentView: View {
                         get: { viewModel.visibleCalendarIDs.contains(cal.calendarIdentifier) },
                         set: { _ in Task { await viewModel.toggleCalendarVisibility(calendarID: cal.calendarIdentifier) } }
                     ))
-                    // FIXED: Changed uiColor to cgColor to match the variable type
                     .tint(Color(cgColor: cal.cgColor))
                 }
             }
@@ -61,7 +62,7 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             
             if viewModel.selectedView != "settings" {
-                Button { showingEventEdit = true } label: {
+                Button { viewModel.isAddingNew = true } label: {
                     Image(systemName: "plus")
                         .font(.title2.bold())
                         .foregroundColor(.white)
