@@ -5,15 +5,17 @@ struct AgendaView: View {
     let searchText: String
 
     private var upcomingEvents: [AppEvent] {
-        viewModel.groupedEvents.values.flatMap { $0 }.filter {
+        let filtered = viewModel.groupedEvents.values.flatMap { $0 }.filter {
             $0.startDate >= Date() && (searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText))
         }.sorted { $0.startDate < $1.startDate }
+        
+        // Safely cast the slice to a strict Array here so SwiftUI doesn't panic
+        return Array(filtered.prefix(100))
     }
 
     var body: some View {
         List {
-            // Re-cast prefix slice to Array to fix SwiftUI type-inference bug
-            ForEach(Array(upcomingEvents.prefix(100))) { event in
+            ForEach(upcomingEvents) { event in
                 VStack(alignment: .leading, spacing: DesignSystem.Layout.densePadding) {
                     HStack(spacing: 6) {
                         RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
