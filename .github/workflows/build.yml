@@ -17,7 +17,11 @@ jobs:
 
       # NEW: This step forces the runner to use Xcode 16.0
       - name: Select Xcode Version
-        run: sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
+        run: |
+          # Finds the newest version of Xcode 16.x installed on the runner
+          XCODE_PATH=$(ls -d /Applications/Xcode_16*.app | sort -V | tail -n 1)
+          echo "Selecting Xcode at $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
 
       - name: Install XcodeGen
         run: brew install xcodegen
