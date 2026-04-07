@@ -35,7 +35,6 @@ struct DayView: View {
                             )
                             .padding(.leading, 60)
                         }
-                        // FIXED: Now sees shared component
                         if Foundation.Calendar.current.isDateInToday(selectedDate) {
                             LiveTimeIndicator(width: UIScreen.main.bounds.width - 60.0).padding(.leading, 60)
                         }
