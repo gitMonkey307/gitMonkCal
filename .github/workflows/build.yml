@@ -10,7 +10,6 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout code
-        # UPDATED: v6 natively supports the Node 24 runtime
         uses: actions/checkout@v6
 
       - name: Install XcodeGen
@@ -40,7 +39,6 @@ jobs:
           mv gitMonkCal.zip gitMonkCal.ipa
 
       - name: Upload Artifact
-        # UPDATED: v7 is the 2026 standard for Node 24 support
         uses: actions/upload-artifact@v7
         with:
           name: gitMonkCal-Build
