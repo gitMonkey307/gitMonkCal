@@ -20,11 +20,15 @@ public struct EventEditView: View {
     @State private var alarms: [TimeInterval] = []
     @State private var isSaving = false
 
-    // Extracts complex logic out of the View body
     private var navTitle: String {
         if eventToEdit != nil { return "Edit Event" }
         if taskToEdit != nil { return "Edit Task" }
         return isTask ? "New Task" : "New Event"
+    }
+    
+    // FIXED: Explicitly extracted to avoid compiler complexity timeouts
+    private var isSaveDisabled: Bool {
+        return title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving
     }
 
     public var body: some View {
@@ -44,7 +48,8 @@ public struct EventEditView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isSaving ? "Saving..." : "Save") { Task { await save() } }
-                        .fontWeight(.bold).disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
+                        .fontWeight(.bold)
+                        .disabled(isSaveDisabled)
                 }
             }
             .onAppear(perform: setupInitialState)
@@ -142,10 +147,15 @@ public struct EventEditView: View {
             isTask = true
             title = t.title
             startDate = t.dueDate ?? Date()
-            notes = t.notes ?? ""
+            notes = t.notes ?? "" // FIXED: Uses the new AppReminder.notes property
             selectedID = t.listID
         } else {
-            selectedID = isTask ? (viewModel.availableReminderLists.first?.calendarIdentifier ?? "") : (viewModel.availableCalendars.first?.calendarIdentifier ?? "")
+            // FIXED: Explicit unrolling of the ternary to avoid AST timeout
+            if isTask {
+                selectedID = viewModel.availableReminderLists.first?.calendarIdentifier ?? ""
+            } else {
+                selectedID = viewModel.availableCalendars.first?.calendarIdentifier ?? ""
+            }
         }
     }
     
