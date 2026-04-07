@@ -8,7 +8,7 @@ struct SettingsView: View {
             Section("Reminder Lists") {
                 ForEach(viewModel.availableReminderLists, id: \.calendarIdentifier) { list in
                     HStack {
-                        Circle().fill(Color(hex: list.cgColor.toHexString() ?? "#34C759") ?? .green).frame(width: 12, height: 12)
+                        Circle().fill(Color(cgColor: list.cgColor) ?? .green).frame(width: 12, height: 12)
                         Text(list.title).font(DesignSystem.Typography.body)
                         Spacer()
                         Image(systemName: viewModel.visibleReminderListIDs.contains(list.calendarIdentifier) ? "checkmark.circle.fill" : "circle")
@@ -19,7 +19,7 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Customizations") {
+            Section("Pro Customizations") {
                 HStack {
                     Text("Core Hours")
                     Spacer()
@@ -33,6 +33,29 @@ struct SettingsView: View {
                     Text("Event Opacity")
                     Spacer()
                     Slider(value: $viewModel.eventOpacity, in: 0.1...1.0, step: 0.1)
+                }
+                Toggle("Hide Completed Tasks", isOn: Binding(
+                    get: { viewModel.hideCompletedTasks },
+                    set: { val in viewModel.updateSettings(hideTasks: val, duration: viewModel.defaultDuration, themeHex: viewModel.themeColorHex); Task { await viewModel.refreshData() } }
+                ))
+                Picker("Default Event Duration", selection: Binding(
+                    get: { viewModel.defaultDuration },
+                    set: { val in viewModel.updateSettings(hideTasks: viewModel.hideCompletedTasks, duration: val, themeHex: viewModel.themeColorHex) }
+                )) {
+                    Text("15 Mins").tag(15); Text("30 Mins").tag(30); Text("1 Hour").tag(60); Text("2 Hours").tag(120)
+                }
+            }
+            
+            Section("App Theme") {
+                Picker("Accent Color", selection: Binding(
+                    get: { viewModel.themeColorHex },
+                    set: { val in viewModel.updateSettings(hideTasks: viewModel.hideCompletedTasks, duration: viewModel.defaultDuration, themeHex: val) }
+                )) {
+                    Text("Blue").tag("#007AFF")
+                    Text("Red").tag("#FF3B30")
+                    Text("Green").tag("#34C759")
+                    Text("Orange").tag("#FF9500")
+                    Text("Purple").tag("#AF52DE")
                 }
             }
 
