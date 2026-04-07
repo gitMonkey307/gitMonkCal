@@ -5,6 +5,14 @@ public enum EventSource: String, Codable {
     case eventKit, reminders, local
 }
 
+// Unified Types for Global Visibility
+public enum UnifiedAgendaItem: Identifiable {
+    case event(AppEvent)
+    case task(AppReminder)
+    public var id: String { switch self { case .event(let e): return "e_" + e.id; case .task(let t): return "t_" + t.id } }
+    public var sortDate: Date { switch self { case .event(let e): return e.startDate; case .task(let t): return t.dueDate ?? Date.distantFuture } }
+}
+
 public struct EventTemplate: Identifiable, Codable {
     public let id: UUID
     public var title: String
@@ -12,7 +20,6 @@ public struct EventTemplate: Identifiable, Codable {
     public var notes: String?
     public var duration: Int
     public var colorHex: String?
-    
     public init(id: UUID = UUID(), title: String, location: String? = nil, notes: String? = nil, duration: Int = 60, colorHex: String? = nil) {
         self.id = id; self.title = title; self.location = location; self.notes = notes; self.duration = duration; self.colorHex = colorHex
     }
@@ -45,7 +52,6 @@ public struct AppEvent: Identifiable, Hashable, Codable {
     }
 
     public var displayColor: Color {
-        // FIXED: Removed 'hex:' label to match new extension
         if let custom = customColorHex { return Color(custom) ?? Color(colorHex) ?? .blue }
         return Color(colorHex) ?? .blue
     }
@@ -65,13 +71,10 @@ public struct AppReminder: Identifiable, Hashable {
     public var listID: String
     public var colorHex: String
     public var priority: Int
-    
-    // FIXED: Removed 'hex:' label to match new extension
     public var displayColor: Color { Color(colorHex) ?? .green }
 }
 
 extension Color {
-    // FIXED: Changed to unlabeled to prevent target-conflict errors
     init?(_ hex: String) {
         var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         if hexSanitized.hasPrefix("#") { hexSanitized.remove(at: hexSanitized.startIndex) }
