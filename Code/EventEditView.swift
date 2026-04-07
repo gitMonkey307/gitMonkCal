@@ -5,6 +5,10 @@ public struct EventEditView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: CalendarViewModel
     
+    // Optional Init Parameters for Editing
+    var eventToEdit: AppEvent?
+    var taskToEdit: AppReminder?
+    
     @State private var isTask: Bool = false
     @State private var title: String = ""
     @State private var location: String = ""
@@ -20,11 +24,13 @@ public struct EventEditView: View {
     public var body: some View {
         NavigationView {
             Form {
-                Picker("Type", selection: $isTask) {
-                    Text("Event").tag(false)
-                    Text("Task").tag(true)
+                if eventToEdit == nil && taskToEdit == nil {
+                    Picker("Type", selection: $isTask) {
+                        Text("Event").tag(false)
+                        Text("Task").tag(true)
+                    }
+                    .pickerStyle(.segmented).padding(.vertical, 4)
                 }
-                .pickerStyle(.segmented).padding(.vertical, 4)
                 
                 Section("Details") {
                     TextField(isTask ? "Task Title" : "Event Title", text: $title).font(DesignSystem.Typography.header)
@@ -58,9 +64,21 @@ public struct EventEditView: View {
                         }
                     }
                 }
+                
                 Section("Notes") { TextEditor(text: $notes).frame(minHeight: 100) }
+                
+                if eventToEdit != nil || taskToEdit != nil {
+                    Section {
+                        Button("Delete", role: .destructive) {
+                            if let e = eventToEdit { viewModel.deleteEvent(e) }
+                            if let t = taskToEdit { viewModel.deleteTask(t) }
+                            dismiss()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                }
             }
-            .navigationTitle(isTask ? "New Task" : "New Event")
+            .navigationTitle(eventToEdit != nil ? "Edit Event" : (taskToEdit != nil ? "Edit Task" : (isTask ? "New Task" : "New Event")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -70,7 +88,14 @@ public struct EventEditView: View {
                 }
             }
             .onAppear {
-                selectedID = isTask ? (viewModel.availableReminderLists.first?.calendarIdentifier ?? "") : (viewModel.availableCalendars.first?.calendarIdentifier ?? "")
+                if let e = eventToEdit {
+                    isTask = false; title = e.title; location = e.location ?? ""; isAllDay = e.isAllDay
+                    startDate = e.startDate; endDate = e.endDate; notes = e.notes ?? ""; selectedID = e.calendarID
+                } else if let t = taskToEdit {
+                    isTask = true; title = t.title; startDate = t.dueDate ?? Date(); notes = t.notes ?? ""; selectedID = t.listID
+                } else {
+                    selectedID = isTask ? (viewModel.availableReminderLists.first?.calendarIdentifier ?? "") : (viewModel.availableCalendars.first?.calendarIdentifier ?? "")
+                }
             }
         }
     }
@@ -79,9 +104,9 @@ public struct EventEditView: View {
         isSaving = true
         do {
             if isTask {
-                try await viewModel.eventKitManager.saveTask(title: title, dueDate: startDate, notes: notes, listID: selectedID)
+                try await viewModel.eventKitManager.saveTask(id: taskToEdit?.id, title: title, dueDate: startDate, notes: notes, listID: selectedID)
             } else {
-                try await viewModel.eventKitManager.saveEvent(title: title, start: startDate, end: endDate, isAllDay: isAllDay, location: location, notes: notes, calendarID: selectedID, alarms: alarms, recurrenceType: recurrenceType)
+                try await viewModel.eventKitManager.saveEvent(id: eventToEdit?.id, title: title, start: startDate, end: endDate, isAllDay: isAllDay, location: location, notes: notes, calendarID: selectedID, alarms: alarms, recurrenceType: recurrenceType)
             }
             await viewModel.refreshData()
             dismiss()
