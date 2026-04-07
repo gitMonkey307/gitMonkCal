@@ -11,8 +11,10 @@ struct ContentView: View {
         } detail: {
             detailStack
         }
-        // FIXED: Restored Global Routing
-        .sheet(isPresented: $viewModel.isAddingNew) { EventEditView(viewModel: viewModel) }
+        // Passes the contextual Tap-to-Add date into the editor
+        .sheet(isPresented: $viewModel.isAddingNew, onDismiss: { viewModel.targetDateForNewItem = nil }) {
+            EventEditView(viewModel: viewModel, initialDate: viewModel.targetDateForNewItem)
+        }
         .sheet(item: $viewModel.editingEvent) { ev in EventEditView(viewModel: viewModel, eventToEdit: ev) }
         .sheet(item: $viewModel.editingTask) { tk in EventEditView(viewModel: viewModel, taskToEdit: tk) }
         .task { await viewModel.requestAccessAndFetch() }
@@ -33,7 +35,8 @@ struct ContentView: View {
                     Toggle(cal.title, isOn: Binding(
                         get: { viewModel.visibleCalendarIDs.contains(cal.calendarIdentifier) },
                         set: { _ in Task { await viewModel.toggleCalendarVisibility(calendarID: cal.calendarIdentifier) } }
-                    )).tint(Color(cgColor: cal.cgColor))
+                    ))
+                    .tint(Color(cgColor: cal.cgColor))
                 }
             }
             Section("Settings") {
@@ -70,7 +73,10 @@ struct ContentView: View {
     }
     
     private var floatingActionButton: some View {
-        Button { viewModel.isAddingNew = true } label: {
+        Button {
+            viewModel.targetDateForNewItem = Date() // Defaults to today if hitting global plus
+            viewModel.isAddingNew = true
+        } label: {
             Image(systemName: "plus")
                 .font(.title2.bold())
                 .foregroundColor(.white)
