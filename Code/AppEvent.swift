@@ -2,8 +2,7 @@ import Foundation
 import SwiftUI
 import UIKit
 
-// Company: gitMonk Interactive
-// Project: gitMonkCal
+// gitMonk Interactive Shared Registry
 
 public enum EventSource: String, Codable {
     case eventKit, reminders, local
