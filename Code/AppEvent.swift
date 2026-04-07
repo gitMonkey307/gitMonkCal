@@ -19,8 +19,8 @@ public struct AppEvent: Identifiable, Hashable, Codable {
     public var isAllDay: Bool
     public var location: String?
     public var notes: String?
-    public var alarms: [TimeInterval]      // FIXED: Prevents alarm wiping
-    public var recurrence: RecurrenceType  // FIXED: Prevents recurrence wiping
+    public var alarms: [TimeInterval]
+    public var recurrence: RecurrenceType
     public var source: EventSource
     public var calendarID: String
     public var colorHex: String 
@@ -41,6 +41,7 @@ public struct AppReminder: Identifiable, Hashable {
     public let id: String
     public var title: String
     public var dueDate: Date?
+    public var notes: String? // FIXED: Added notes property
     public var isCompleted: Bool
     public var listID: String
     public var colorHex: String
