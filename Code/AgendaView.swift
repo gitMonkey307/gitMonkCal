@@ -4,7 +4,8 @@ struct AgendaView: View {
     @ObservedObject var viewModel: CalendarViewModel
     let searchText: String
 
-    private var groupedItems: [(Date, [UnifiedAgendaItem])] {
+    // FIXED: Strictly typed to prevent Binding<C> compiler panic
+    private var groupedItems: [Date: [UnifiedAgendaItem]] {
         var items: [UnifiedAgendaItem] = []
         if viewModel.agendaFilter == "all" || viewModel.agendaFilter == "events" {
             let validEvents = viewModel.groupedEvents.values.flatMap { $0 }.filter { $0.startDate >= Date() && (searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)) }
@@ -16,18 +17,16 @@ struct AgendaView: View {
             }
             items.append(contentsOf: validTasks.map { .task($0) })
         }
-        let sorted = items.sorted { $0.sortDate < $1.sortDate }
-        let grouped = Dictionary(grouping: sorted) { Calendar.current.startOfDay(for: $0.sortDate) }
-        return grouped.sorted { $0.key < $1.key }
+        return Dictionary(grouping: items.sorted { $0.sortDate < $1.sortDate }) { Calendar.current.startOfDay(for: $0.sortDate) }
     }
 
     var body: some View {
         VStack(spacing: 0) {
             filterHeader
             List {
-                ForEach(groupedItems, id: \.0) { date, items in
+                ForEach(Array(groupedItems.keys.sorted()), id: \.self) { date in
                     Section(header: Text(date.formatted(.dateTime.weekday(.wide).month(.wide).day())).font(.headline).foregroundColor(.primary)) {
-                        ForEach(items) { item in
+                        ForEach(groupedItems[date] ?? []) { item in
                             AgendaRowView(item: item, viewModel: viewModel, searchText: searchText)
                         }
                     }
@@ -40,18 +39,28 @@ struct AgendaView: View {
 
     private var filterHeader: some View {
         HStack {
-            FilterChip(title: "All", id: "all", selectedID: $viewModel.agendaFilter)
-            FilterChip(title: "Events", id: "events", selectedID: $viewModel.agendaFilter)
-            FilterChip(title: "Tasks", id: "tasks", selectedID: $viewModel.agendaFilter)
+            FilterChipView(title: "All", id: "all", selectedID: $viewModel.agendaFilter)
+            FilterChipView(title: "Events", id: "events", selectedID: $viewModel.agendaFilter)
+            FilterChipView(title: "Tasks", id: "tasks", selectedID: $viewModel.agendaFilter)
             Spacer()
         }
         .padding(.horizontal).padding(.vertical, 8).background(DesignSystem.Aesthetics.toolbarMaterial)
     }
 }
 
+// SHARED VIEW: Global scope ensures compiler visibility
+struct FilterChipView: View {
+    let title: String; let id: String; @Binding var selectedID: String
+    var body: some View {
+        Button(title) { selectedID = id }
+            .font(.caption.bold()).padding(.horizontal, 12).padding(.vertical, 6)
+            .background(selectedID == id ? Color.accentColor : Color.secondary.opacity(0.1))
+            .foregroundColor(selectedID == id ? .white : .primary).cornerRadius(12)
+    }
+}
+
 struct AgendaRowView: View {
     let item: UnifiedAgendaItem; @ObservedObject var viewModel: CalendarViewModel; let searchText: String
-    
     var body: some View {
         Group {
             switch item {
@@ -59,7 +68,12 @@ struct AgendaRowView: View {
             case .task(let task): taskRow(task)
             }
         }
-        .swipeActions(edge: .trailing) { Button(role: .destructive) { delete() } label: { Label("Delete", systemImage: "trash") } }
+        .swipeActions(edge: .trailing) { 
+            Button(role: .destructive) { delete() } label: { Label("Delete", systemImage: "trash") } 
+        }
+        .swipeActions(edge: .leading) {
+            Button { viewModel.moveItemToTomorrow(item) } label: { Label("Tomorrow", systemImage: "calendar.badge.plus") }.tint(.orange)
+        }
     }
 
     @ViewBuilder
@@ -67,9 +81,11 @@ struct AgendaRowView: View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
             VStack(alignment: .leading, spacing: 0) {
-                // Feature: Search Highlighting
-                Text(event.title).font(DesignSystem.Typography.eventPill)
-                    .fontWeight(searchText.isEmpty ? .regular : (event.title.localizedCaseInsensitiveContains(searchText) ? .black : .regular))
+                HStack {
+                    if event.isBirthday { Text("🎁").font(.system(size: 10)) }
+                    Text(event.title).font(DesignSystem.Typography.eventPill)
+                        .fontWeight(searchText.isEmpty ? .regular : (event.title.localizedCaseInsensitiveContains(searchText) ? .black : .regular))
+                }
                 Text(event.startDate.formatted(.dateTime.hour().minute())).font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
             }
         }
@@ -80,14 +96,14 @@ struct AgendaRowView: View {
     private func taskRow(_ task: AppReminder) -> some View {
         HStack(spacing: 6) {
             Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle").foregroundColor(task.isCompleted ? .green : .secondary).onTapGesture { Task { await viewModel.toggleReminderCompleted(task) } }
+            // Feature: Priority Heat-Bar
+            RoundedRectangle(cornerRadius: 1).fill(task.displayColor).frame(width: CGFloat(task.priority == 1 ? 6 : 2))
             VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    if task.priority > 0 && task.priority < 5 { Text("!!!").foregroundColor(.red).bold().font(.caption) }
-                    Text(task.title).font(DesignSystem.Typography.eventPill).strikethrough(task.isCompleted)
-                        .fontWeight(searchText.isEmpty ? .regular : (task.title.localizedCaseInsensitiveContains(searchText) ? .black : .regular))
-                }
+                Text(task.title).font(DesignSystem.Typography.eventPill).strikethrough(task.isCompleted)
+                    .fontWeight(searchText.isEmpty ? .regular : (task.title.localizedCaseInsensitiveContains(searchText) ? .black : .regular))
+                if let notes = task.notes, !notes.isEmpty { Text(notes).font(.system(size: 8)).lineLimit(1).foregroundColor(.secondary) }
             }
-            Spacer(); RoundedRectangle(cornerRadius: 2).fill(task.displayColor).frame(width: 4)
+            Spacer()
         }
         .onTapGesture { viewModel.editingTask = task }
     }
