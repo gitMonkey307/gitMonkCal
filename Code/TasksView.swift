@@ -4,8 +4,8 @@ struct TasksView: View {
     @ObservedObject var viewModel: CalendarViewModel
     let searchText: String
 
-    // Feature: Hide Completed Tasks
     private var validTasks: [AppReminder] {
+        // FIXED: Accessing filteredReminders from VM correctly
         viewModel.filteredReminders.filter { task in
             !task.isCompleted || !viewModel.hideCompletedTasks
         }
@@ -13,7 +13,7 @@ struct TasksView: View {
 
     var body: some View {
         List {
-            ForEach(validTasks) { reminder in
+            ForEach(validTasks, id: \.id) { reminder in
                 HStack(spacing: DesignSystem.Layout.densePadding) {
                     Image(systemName: reminder.isCompleted ? "checkmark.circle.fill" : "circle")
                         .foregroundColor(reminder.isCompleted ? .green : .secondary)
@@ -21,7 +21,10 @@ struct TasksView: View {
                         .onTapGesture { Task { await viewModel.toggleReminderCompleted(reminder) } }
                     
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(reminder.title).font(DesignSystem.Typography.eventPill).strikethrough(reminder.isCompleted)
+                        HStack(spacing: 2) {
+                            if reminder.priority > 0 && reminder.priority < 5 { Text("!!").font(.caption).foregroundColor(.red).bold() }
+                            Text(reminder.title).font(DesignSystem.Typography.eventPill).strikethrough(reminder.isCompleted)
+                        }
                         if let dueDate = reminder.dueDate {
                             Text(dueDate.formatted(.dateTime.hour().minute())).font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
                         }
