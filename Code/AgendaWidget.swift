@@ -1,7 +1,6 @@
 import WidgetKit
 import SwiftUI
 import EventKit
-import Foundation
 
 struct AgendaProvider: TimelineProvider {
     func placeholder(in context: Context) -> AgendaEntry { AgendaEntry(date: Date(), events: []) }
@@ -9,14 +8,14 @@ struct AgendaProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
         Task { @MainActor in
             let currentDate = Date()
-            let endDate = Foundation.Calendar.current.date(byAdding: .day, value: 1, to: currentDate)!
+            let endDate = Calendar.current.date(byAdding: .day, value: 1, to: currentDate)!
             let eventManager = EventKitManager()
             var entryEvents: [AppEvent] = []
             do {
                 try await eventManager.requestCalendarAccess()
                 entryEvents = try await eventManager.fetchEvents(from: currentDate, to: endDate)
-            } catch { print("Widget auth fail") }
-            let nextUpdate = Foundation.Calendar.current.date(byAdding: .minute, value: 30, to: currentDate)!
+            } catch { print("gitMonk Widget Auth Fail") }
+            let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: currentDate)!
             completion(Timeline(entries: [AgendaEntry(date: currentDate, events: entryEvents)], policy: .after(nextUpdate)))
         }
     }
@@ -34,7 +33,6 @@ struct AgendaWidgetEntryView : View {
                 Text("No events").font(.system(size: 12)).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .center).padding()
             } else {
                 ForEach(entry.events.prefix(4)) { event in
-                    // NEW: Deep-Link Routing for gitMonk Interactive
                     Link(destination: URL(string: "gitmonkcal://event/\(event.id)")!) {
                         HStack(spacing: 6) {
                             RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
