@@ -13,6 +13,7 @@ public struct EventEditView: View {
     @State private var endDate: Date = Calendar.current.date(byAdding: .hour, value: 1, to: Date())!
     @State private var selectedID: String = ""
     @State private var notes: String = ""
+    @State private var recurrenceType: RecurrenceType = .none
     @State private var alarms: [TimeInterval] = []
     @State private var isSaving = false
 
@@ -26,8 +27,7 @@ public struct EventEditView: View {
                 .pickerStyle(.segmented).padding(.vertical, 4)
                 
                 Section("Details") {
-                    TextField(isTask ? "Task Title" : "Event Title", text: $title)
-                        .font(DesignSystem.Typography.header)
+                    TextField(isTask ? "Task Title" : "Event Title", text: $title).font(DesignSystem.Typography.header)
                     if !isTask { TextField("Location", text: $location) }
                 }
                 
@@ -35,6 +35,18 @@ public struct EventEditView: View {
                     if !isTask { Toggle("All-day", isOn: $isAllDay) }
                     DatePicker(isTask ? "Due Date" : "Starts", selection: $startDate)
                     if !isTask { DatePicker("Ends", selection: $endDate, in: startDate...) }
+                }
+                
+                if !isTask {
+                    Section("Recurrence & Alarms") {
+                        Picker("Repeat", selection: $recurrenceType) {
+                            ForEach(RecurrenceType.allCases) { Text($0.displayName).tag($0) }
+                        }
+                        Button("Add Alarm (15m before)") { alarms.append(-900) }
+                        ForEach(alarms, id: \.self) { offset in
+                            Text("\(Int(abs(offset)/60)) minutes before").foregroundColor(.secondary)
+                        }
+                    }
                 }
                 
                 Section(isTask ? "List" : "Calendar") {
@@ -54,7 +66,7 @@ public struct EventEditView: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isSaving ? "Saving..." : "Save") { Task { await save() } }
-                        .fontWeight(.bold).disabled(title.isEmpty || isSaving)
+                        .fontWeight(.bold).disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
                 }
             }
             .onAppear {
@@ -69,7 +81,7 @@ public struct EventEditView: View {
             if isTask {
                 try await viewModel.eventKitManager.saveTask(title: title, dueDate: startDate, notes: notes, listID: selectedID)
             } else {
-                try await viewModel.eventKitManager.saveEvent(title: title, start: startDate, end: endDate, isAllDay: isAllDay, location: location, notes: notes, calendarID: selectedID, alarms: alarms)
+                try await viewModel.eventKitManager.saveEvent(title: title, start: startDate, end: endDate, isAllDay: isAllDay, location: location, notes: notes, calendarID: selectedID, alarms: alarms, recurrenceType: recurrenceType)
             }
             await viewModel.refreshData()
             dismiss()
