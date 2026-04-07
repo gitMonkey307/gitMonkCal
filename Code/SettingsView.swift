@@ -8,7 +8,8 @@ struct SettingsView: View {
             Section("Reminder Lists") {
                 ForEach(viewModel.availableReminderLists, id: \.calendarIdentifier) { list in
                     HStack {
-                        Circle().fill(Color(cgColor: list.cgColor) ?? .green).frame(width: 12, height: 12)
+                        // FIXED: Removed invalid nil-coalescing
+                        Circle().fill(Color(cgColor: list.cgColor)).frame(width: 12, height: 12)
                         Text(list.title).font(DesignSystem.Typography.body)
                         Spacer()
                         Image(systemName: viewModel.visibleReminderListIDs.contains(list.calendarIdentifier) ? "checkmark.circle.fill" : "circle")
