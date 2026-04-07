@@ -27,8 +27,6 @@ public class CalendarViewModel: ObservableObject {
     @Published public var targetDateForNewItem: Date? = nil
     @Published public var editingEvent: AppEvent? = nil
     @Published public var editingTask: AppReminder? = nil
-    @Published public var eventToDuplicate: AppEvent? = nil
-    @Published public var showDatePicker: Bool = false
     
     @Published public var themeColorHex: String = "#007AFF"
     @Published public var hideCompletedTasks: Bool = false
@@ -39,12 +37,17 @@ public class CalendarViewModel: ObservableObject {
     @Published public var coreHourStart: Int = 8
     @Published public var coreHourEnd: Int = 18
 
-    public var currentViewRange: (start: Date, end: Date)
-    public let eventKitManager: EventKitManager
     private var cancellables = Set<AnyCancellable>()
+    public let eventKitManager: EventKitManager
+    public var currentViewRange: (start: Date, end: Date)
 
+    // FIXED: Multi-field Search (Title + Notes + Location)
     public var filteredReminders: [AppReminder] {
-        searchText.isEmpty ? reminders : reminders.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
+        if searchText.isEmpty { return reminders }
+        return reminders.filter { 
+            $0.title.localizedCaseInsensitiveContains(searchText) || 
+            ($0.notes?.localizedCaseInsensitiveContains(searchText) ?? false)
+        }
     }
 
     public var dateRangeArray: [Date] {
@@ -55,40 +58,30 @@ public class CalendarViewModel: ObservableObject {
         return dates
     }
 
-    public init(eventKitManager: EventKitManager? = nil) {
-        self.eventKitManager = eventKitManager ?? EventKitManager()
+    public init() {
+        self.eventKitManager = EventKitManager()
         let cal = Foundation.Calendar.current
         self.currentViewRange = (cal.date(byAdding: .month, value: -3, to: Date())!, cal.date(byAdding: .month, value: 6, to: Date())!)
         loadPreferences()
         
-        // Listener for EventKit changes
         NotificationCenter.default.publisher(for: .EKEventStoreChanged)
             .sink { [weak self] _ in Task { await self?.refreshData() } }.store(in: &cancellables)
             
-        // NEW: Listener for Midnight Rollover
         NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)
             .sink { [weak self] _ in Task { await self?.refreshData() } }.store(in: &cancellables)
     }
 
-    public func saveLocation(_ loc: String) {
-        guard !loc.isEmpty else { return }
-        var current = recentLocations
-        current.removeAll { $0 == loc }
-        current.insert(loc, at: 0)
-        recentLocations = Array(current.prefix(5))
-        UserDefaults.standard.set(recentLocations, forKey: "recent_locations")
-    }
-
-    public func moveItemToTomorrow(_ item: UnifiedAgendaItem) {
-        let tomorrow = Foundation.Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-        Task {
-            switch item {
-            case .event(let e):
-                try? await eventKitManager.saveEvent(id: nil, title: e.title, start: tomorrow, end: tomorrow.addingTimeInterval(3600), isAllDay: e.isAllDay, location: e.location, notes: e.notes, calendarID: e.calendarID, alarms: e.alarms, recurrenceType: e.recurrence, customColorHex: e.customColorHex)
-            case .task(let t):
-                try? await eventKitManager.saveTask(id: nil, title: t.title, dueDate: tomorrow, notes: t.notes, listID: t.listID, priority: t.priority)
+    // Feature: Handle Deep-Link from gitMonk Widget
+    public func handleDeepLink(url: URL) {
+        guard url.scheme == "gitmonkcal", url.host == "event", 
+              let eventID = url.pathComponents.last else { return }
+        
+        // Find and trigger the editor for this specific event
+        for eventList in groupedEvents.values {
+            if let target = eventList.first(where: { $0.id == eventID }) {
+                self.editingEvent = target
+                return
             }
-            await refreshData()
         }
     }
 
@@ -110,7 +103,7 @@ public class CalendarViewModel: ObservableObject {
                 }
             }
             self.groupedEvents = dict; self.reminders = rawReminders
-        } catch { print("Fetch failed") }
+        } catch { print("Data sync failed") }
         isLoading = false
     }
 
@@ -135,7 +128,9 @@ public class CalendarViewModel: ObservableObject {
     public func deleteEvent(_ event: AppEvent) { try? eventKitManager.deleteEvent(identifier: event.id); Task { await refreshData() } }
     public func deleteTask(_ task: AppReminder) { try? eventKitManager.deleteTask(identifier: task.id); Task { await refreshData() } }
     public func jumpToToday() { anchorDate = Date() }
-    
+    public func toggleCalendarVisibility(calendarID: String) async { if visibleCalendarIDs.contains(calendarID) { visibleCalendarIDs.remove(calendarID) } else { visibleCalendarIDs.insert(calendarID) }; await refreshData() }
+    public func toggleReminderListVisibility(listID: String) async { if visibleReminderListIDs.contains(listID) { visibleReminderListIDs.remove(listID) } else { visibleReminderListIDs.insert(listID) }; await refreshData() }
+
     private func loadPreferences() {
         let d = UserDefaults.standard
         themeColorHex = d.string(forKey: "themeColorHex") ?? "#007AFF"
@@ -146,8 +141,6 @@ public class CalendarViewModel: ObservableObject {
         defaultDuration = d.integer(forKey: "defaultDuration") == 0 ? 60 : d.integer(forKey: "defaultDuration")
         firstDayOfWeek = d.integer(forKey: "firstDayOfWeek") == 0 ? 1 : d.integer(forKey: "firstDayOfWeek")
         eventOpacity = d.double(forKey: "eventOpacity") == 0 ? 0.2 : d.double(forKey: "eventOpacity")
-        coreHourStart = d.integer(forKey: "coreHourStart") == 0 ? 8 : d.integer(forKey: "coreHourStart")
-        coreHourEnd = d.integer(forKey: "coreHourEnd") == 0 ? 18 : d.integer(forKey: "coreHourEnd")
         if let data = d.data(forKey: "saved_templates"), let decoded = try? JSONDecoder().decode([EventTemplate].self, from: data) { templates = decoded }
     }
 
@@ -162,28 +155,14 @@ public class CalendarViewModel: ObservableObject {
         coreHourStart = max(0, min(23, start)); coreHourEnd = max(coreHourStart + 1, min(24, end))
         UserDefaults.standard.set(coreHourStart, forKey: "coreHourStart"); UserDefaults.standard.set(coreHourEnd, forKey: "coreHourEnd")
     }
-
-    public func deleteTemplate(at offsets: IndexSet) {
-        templates.remove(atOffsets: offsets)
-        if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") }
+    
+    public func saveLocation(_ loc: String) {
+        guard !loc.isEmpty else { return }
+        var current = recentLocations; current.removeAll { $0 == loc }; current.insert(loc, at: 0)
+        recentLocations = Array(current.prefix(5))
+        UserDefaults.standard.set(recentLocations, forKey: "recent_locations")
     }
     
-    public func saveTemplate(_ template: EventTemplate) {
-        templates.append(template)
-        if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") }
-    }
-    
-    public func addToSearchHistory(_ term: String) {
-        guard !term.isEmpty else { return }
-        var current = searchHistory
-        current.removeAll { $0 == term }
-        current.insert(term, at: 0)
-        searchHistory = Array(current.prefix(3))
-        UserDefaults.standard.set(searchHistory, forKey: "search_history")
-    }
-
-    public func toggleCalendarVisibility(calendarID: String) async {
-        if visibleCalendarIDs.contains(calendarID) { visibleCalendarIDs.remove(calendarID) } else { visibleCalendarIDs.insert(calendarID) }
-        await refreshData()
-    }
+    public func saveTemplate(_ template: EventTemplate) { templates.append(template); if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") } }
+    public func deleteTemplate(at offsets: IndexSet) { templates.remove(atOffsets: offsets); if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") } }
 }
