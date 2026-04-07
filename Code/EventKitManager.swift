@@ -2,6 +2,9 @@ import Foundation
 import EventKit
 import SwiftUI
 
+// Company: gitMonk Interactive
+// Project: gitMonkCal
+
 public enum EventKitError: LocalizedError {
     case accessDenied, restricted, fetchFailed(String)
     public var errorDescription: String? {
@@ -113,7 +116,7 @@ public class EventKitManager: ObservableObject {
             isCompleted: ek.isCompleted,
             listID: ek.calendar.calendarIdentifier,
             colorHex: safeHex,
-            priority: ek.priority // NEW: Extract priority natively
+            priority: ek.priority 
         )
     }
 
@@ -161,7 +164,7 @@ public class EventKitManager: ObservableObject {
         task.title = title
         task.notes = notes
         task.calendar = store.calendar(withIdentifier: listID) ?? store.defaultCalendarForNewReminders()
-        task.dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
+        task.dueDateComponents = Foundation.Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
         try store.save(task, commit: true)
     }
 
@@ -177,12 +180,5 @@ public class EventKitManager: ObservableObject {
     
     public func deleteTask(identifier: String) throws {
         if let task = store.calendarItem(withIdentifier: identifier) as? EKReminder { try store.remove(task, commit: true) }
-    }
-}
-
-extension CGColor {
-    func toHexString() -> String? {
-        guard let c = self.components, c.count >= 3 else { return nil }
-        return String(format: "#%02lX%02lX%02lX", lroundf(Float(c[0])*255), lroundf(Float(c[1])*255), lroundf(Float(c[2])*255))
     }
 }
