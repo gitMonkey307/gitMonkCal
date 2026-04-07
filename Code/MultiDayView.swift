@@ -7,9 +7,8 @@ struct MultiDayView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            // FIXED: Explicit unboxing of the Published property
-            let displayVal = CGFloat(viewModel.daysToDisplay)
-            let columnWidth = geometry.size.width / max(1.0, displayVal)
+            let displayCount = CGFloat(max(1, viewModel.daysToDisplay))
+            let columnWidth = geometry.size.width / displayCount
 
             ZStack(alignment: .bottom) {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -34,13 +33,12 @@ struct MultiDayView: View {
         VStack(spacing: 0) {
             Divider()
             HStack(spacing: 15) {
-                // FIXED: Explicitly stringified for the compiler
                 Text("\(Int(viewModel.daysToDisplay)) Days").font(DesignSystem.Typography.timeLabel).monospacedDigit().frame(width: 60)
-                
-                Slider(value: Binding(
+                // FIXED: Explicitly typed Binding to Double to prevent AST inferrence failure
+                Slider(value: Binding<Double>(
                     get: { Double(viewModel.daysToDisplay) },
                     set: { viewModel.daysToDisplay = Int($0); haptic.selectionChanged() }
-                ), in: 1...14, step: 1)
+                ), in: 1.0...14.0, step: 1.0)
             }
             .padding(.horizontal, DesignSystem.Layout.screenEdge).padding(.vertical, 8).background(.ultraThinMaterial)
         }
@@ -61,7 +59,6 @@ struct DayColumnView: View {
                     let sharedWidth = width / CGFloat(max(1, overlapping.count))
                     TimelineEventPill(event: event, columnWidth: sharedWidth, opacity: opacity, viewModel: viewModel).offset(x: CGFloat(myIndex) * sharedWidth)
                 }
-                // FIXED: Now sees globally visible LiveTimeIndicator
                 if Foundation.Calendar.current.isDateInToday(date) { LiveTimeIndicator(width: width) }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
