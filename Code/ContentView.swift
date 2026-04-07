@@ -1,13 +1,12 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var viewModel = CalendarViewModel()
+    @EnvironmentObject var viewModel: CalendarViewModel
     @State private var showingEventEdit = false
     @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            // SIDEBAR
             List {
                 Section("Views") {
                     SidebarRow(title: "Month", icon: "calendar", id: "month", selected: $viewModel.selectedView)
@@ -16,6 +15,14 @@ struct ContentView: View {
                     SidebarRow(title: "Agenda", icon: "list.bullet", id: "agenda", selected: $viewModel.selectedView)
                     SidebarRow(title: "Tasks", icon: "checkmark.circle", id: "tasks", selected: $viewModel.selectedView)
                     SidebarRow(title: "Year", icon: "calendar.circle", id: "year", selected: $viewModel.selectedView)
+                }
+                Section("Calendars") {
+                    ForEach(viewModel.availableCalendars, id: \.calendarIdentifier) { cal in
+                        Toggle(cal.title, isOn: Binding(
+                            get: { viewModel.visibleCalendarIDs.contains(cal.calendarIdentifier) },
+                            set: { _ in Task { await viewModel.toggleCalendarVisibility(calendarID: cal.calendarIdentifier) } }
+                        )).tint(Color(uiColor: cal.cgColor))
+                    }
                 }
                 Section("Settings") {
                     SidebarRow(title: "Preferences", icon: "gearshape", id: "settings", selected: $viewModel.selectedView)
@@ -40,15 +47,16 @@ struct ContentView: View {
                 .navigationTitle(viewModel.selectedView.capitalized)
                 .navigationBarTitleDisplayMode(.inline)
                 
-                // FLOATING ADD BUTTON
-                Button { showingEventEdit = true } label: {
-                    Image(systemName: "plus")
-                        .font(.title2.bold())
-                        .foregroundColor(.white)
-                        .frame(width: 56, height: 56)
-                        .background(Circle().fill(Color.blue).shadow(radius: 4))
+                if viewModel.selectedView != "settings" {
+                    Button { showingEventEdit = true } label: {
+                        Image(systemName: "plus")
+                            .font(.title2.bold())
+                            .foregroundColor(.white)
+                            .frame(width: 56, height: 56)
+                            .background(Circle().fill(Color.blue).shadow(radius: 4))
+                    }
+                    .padding(24)
                 }
-                .padding(24)
             }
         }
         .sheet(isPresented: $showingEventEdit) { EventEditView(viewModel: viewModel) }
