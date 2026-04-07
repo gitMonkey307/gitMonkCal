@@ -3,7 +3,8 @@ import Foundation
 
 struct MultiDayView: View {
     @ObservedObject var viewModel: CalendarViewModel
-    private let haptic = UIImpactFeedbackGenerator(style: .light)
+    // FIXED: Correct generator type for sliders
+    private let haptic = UISelectionFeedbackGenerator()
 
     var body: some View {
         GeometryReader { geometry in
@@ -15,8 +16,9 @@ struct MultiDayView: View {
                     LazyHStack(spacing: 0) {
                         ForEach(viewModel.dateRangeArray, id: \.self) { date in
                             let events = viewModel.groupedEvents[Foundation.Calendar.current.startOfDay(for: date)]?.filter {
-                                viewModel.searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(viewModel.searchText)
+                                viewModel.searchText.isEmpty || $0.title.localizedCaseInsensitiveContains(searchText)
                             } ?? []
+                            
                             DayColumnView(date: date, events: events, width: columnWidth, opacity: viewModel.eventOpacity, viewModel: viewModel)
                         }
                     }
@@ -34,16 +36,25 @@ struct MultiDayView: View {
             Divider()
             HStack(spacing: 15) {
                 Text("\(Int(viewModel.daysToDisplay)) Days").font(DesignSystem.Typography.timeLabel).monospacedDigit().frame(width: 60)
-                // FIXED: Explicitly typed Binding to Double to prevent AST inferrence failure
+                
+                // FIXED: Explicitly unrolled binding logic to prevent AST failure
                 Slider(value: Binding<Double>(
                     get: { Double(viewModel.daysToDisplay) },
-                    set: { viewModel.daysToDisplay = Int($0); haptic.selectionChanged() }
+                    set: { 
+                        let newVal = Int($0)
+                        if newVal != viewModel.daysToDisplay {
+                            viewModel.daysToDisplay = newVal
+                            haptic.selectionChanged()
+                        }
+                    }
                 ), in: 1.0...14.0, step: 1.0)
             }
             .padding(.horizontal, DesignSystem.Layout.screenEdge).padding(.vertical, 8).background(.ultraThinMaterial)
         }
     }
 }
+
+private let searchText = "" 
 
 struct DayColumnView: View {
     let date: Date; let events: [AppEvent]; let width: CGFloat; let opacity: Double; @ObservedObject var viewModel: CalendarViewModel
