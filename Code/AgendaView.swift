@@ -17,7 +17,6 @@ struct AgendaView: View {
             }
             items.append(contentsOf: validTasks.map { .task($0) })
         }
-        
         let grouped = Dictionary(grouping: items.sorted { $0.sortDate < $1.sortDate }) { Foundation.Calendar.current.startOfDay(for: $0.sortDate) }
         return grouped.sorted { $0.key < $1.key }
     }
@@ -50,17 +49,6 @@ struct AgendaView: View {
     }
 }
 
-// FIXED: Restored missing sub-views
-struct FilterChipView: View {
-    let title: String; let id: String; @Binding var selectedID: String
-    var body: some View {
-        Button(title) { selectedID = id }
-            .font(.caption.bold()).padding(.horizontal, 12).padding(.vertical, 6)
-            .background(selectedID == id ? Color.accentColor : Color.secondary.opacity(0.1))
-            .foregroundColor(selectedID == id ? .white : .primary).cornerRadius(12)
-    }
-}
-
 struct AgendaRowView: View {
     let item: UnifiedAgendaItem; @ObservedObject var viewModel: CalendarViewModel; let searchText: String
     var body: some View {
@@ -70,9 +58,8 @@ struct AgendaRowView: View {
             case .task(let task): taskRow(task)
             }
         }
-        .swipeActions(edge: .trailing) { 
-            Button(role: .destructive) { delete() } label: { Label("Delete", systemImage: "trash") } 
-        }
+        .swipeActions(edge: .trailing) { Button(role: .destructive) { delete() } label: { Label("Delete", systemImage: "trash") } }
+        .swipeActions(edge: .leading) { Button { viewModel.moveItemToTomorrow(item) } label: { Label("Tomorrow", systemImage: "arrow.right.circle") }.tint(.orange) }
     }
 
     @ViewBuilder
@@ -80,8 +67,7 @@ struct AgendaRowView: View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
             VStack(alignment: .leading, spacing: 0) {
-                Text(event.title).font(DesignSystem.Typography.eventPill)
-                    .fontWeight(searchText.isEmpty ? .regular : (event.title.localizedCaseInsensitiveContains(searchText) ? .black : .regular))
+                HStack { if event.isBirthday { Text("🎁").font(.system(size: 10)) }; Text(event.title).font(DesignSystem.Typography.eventPill).fontWeight(searchText.isEmpty ? .regular : (event.title.localizedCaseInsensitiveContains(searchText) ? .black : .regular)) }
                 Text(event.startDate.formatted(.dateTime.hour().minute())).font(DesignSystem.Typography.timeLabel).foregroundColor(.secondary)
             }
         }
@@ -92,11 +78,8 @@ struct AgendaRowView: View {
     private func taskRow(_ task: AppReminder) -> some View {
         HStack(spacing: 6) {
             Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle").foregroundColor(task.isCompleted ? .green : .secondary).onTapGesture { Task { await viewModel.toggleReminderCompleted(task) } }
-            RoundedRectangle(cornerRadius: 1).fill(task.displayColor).frame(width: CGFloat(task.priority == 1 ? 6 : 2))
-            VStack(alignment: .leading, spacing: 0) {
-                Text(task.title).font(DesignSystem.Typography.eventPill).strikethrough(task.isCompleted)
-                    .fontWeight(searchText.isEmpty ? .regular : (task.title.localizedCaseInsensitiveContains(searchText) ? .black : .regular))
-            }
+            RoundedRectangle(cornerRadius: 1).fill(task.displayColor).frame(width: CGFloat(task.priority < 5 && task.priority > 0 ? 6 : 2))
+            VStack(alignment: .leading, spacing: 0) { Text(task.title).font(DesignSystem.Typography.eventPill).strikethrough(task.isCompleted).fontWeight(searchText.isEmpty ? .regular : (task.title.localizedCaseInsensitiveContains(searchText) ? .black : .regular)); if let notes = task.notes, !notes.isEmpty { Text(notes).font(.system(size: 8)).lineLimit(1).foregroundColor(.secondary) } }
             Spacer()
         }
         .onTapGesture { viewModel.editingTask = task }
