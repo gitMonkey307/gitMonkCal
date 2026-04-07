@@ -51,13 +51,23 @@ struct MonthDayCell: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 1) {
-            Text(date.formatted(.dateTime.day()))
-                .font(DesignSystem.Typography.monthDayNumber)
-                .foregroundColor(Calendar.current.isDateInToday(date) ? .white : .primary)
-                .padding(4)
-                .background(Calendar.current.isDateInToday(date) ? Color.blue : Color.clear)
-                .clipShape(Circle())
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            HStack {
+                // Feature: Week Numbers 
+                if Calendar.current.component(.weekday, from: date) == Calendar.current.firstWeekday {
+                    Text("W\(Calendar.current.component(.weekOfYear, from: date))")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.secondary.opacity(0.5))
+                        .padding(.leading, 2)
+                }
+                Spacer()
+                Text(date.formatted(.dateTime.day()))
+                    .font(DesignSystem.Typography.monthDayNumber)
+                    .foregroundColor(Calendar.current.isDateInToday(date) ? .white : .primary)
+                    .padding(4)
+                    .background(Calendar.current.isDateInToday(date) ? Color.blue : Color.clear)
+                    .clipShape(Circle())
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
 
             ForEach(events) { event in
                 Text(event.title)
@@ -68,14 +78,18 @@ struct MonthDayCell: View {
                     .background(event.displayColor.opacity(opacity))
                     .foregroundColor(event.displayColor)
                     .cornerRadius(2)
-                    .onTapGesture { viewModel.editingEvent = event } // Intercepts taps on pills
+                    .onTapGesture { viewModel.editingEvent = event }
+                    // Feature: Event Duplication Context Menu
+                    .contextMenu {
+                        Button { viewModel.eventToDuplicate = event } label: { Label("Duplicate", systemImage: "doc.on.doc") }
+                        Button(role: .destructive) { viewModel.deleteEvent(event) } label: { Label("Delete", systemImage: "trash") }
+                    }
             }
             Spacer(minLength: 0)
         }
         .frame(minHeight: 80, maxHeight: .infinity, alignment: .top)
         .border(DesignSystem.Aesthetics.gridLine, width: 0.25)
         .contentShape(Rectangle())
-        // NEW: Contextual Tap-to-Add for empty grid space
         .onTapGesture {
             viewModel.targetDateForNewItem = date
             viewModel.isAddingNew = true
