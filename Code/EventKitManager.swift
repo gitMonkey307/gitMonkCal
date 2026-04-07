@@ -82,6 +82,7 @@ public class EventKitManager: ObservableObject {
         
         let safeTitle = ek.title ?? "Untitled"
         let safeHex = ek.calendar.cgColor.toHexString() ?? "#007AFF"
+        let isBday = ek.calendar.type == .birthday
         
         return AppEvent(
             id: ek.eventIdentifier,
@@ -95,7 +96,8 @@ public class EventKitManager: ObservableObject {
             recurrence: rec,
             source: .eventKit,
             calendarID: ek.calendar.calendarIdentifier,
-            colorHex: safeHex
+            colorHex: safeHex,
+            isBirthday: isBday
         )
     }
     
@@ -110,12 +112,12 @@ public class EventKitManager: ObservableObject {
             notes: ek.notes,
             isCompleted: ek.isCompleted,
             listID: ek.calendar.calendarIdentifier,
-            colorHex: safeHex
+            colorHex: safeHex,
+            priority: ek.priority // NEW: Extract priority natively
         )
     }
 
     public func saveEvent(id: String? = nil, title: String, start: Date, end: Date, isAllDay: Bool, location: String?, notes: String?, calendarID: String, alarms: [TimeInterval], recurrenceType: RecurrenceType) async throws {
-        // EXPLICIT INSTANTIATION: Eliminates compiler type-check timeout
         let event: EKEvent
         if let safeID = id, let existing = store.event(withIdentifier: safeID) {
             event = existing
@@ -149,7 +151,6 @@ public class EventKitManager: ObservableObject {
     }
     
     public func saveTask(id: String? = nil, title: String, dueDate: Date, notes: String?, listID: String) async throws {
-        // EXPLICIT INSTANTIATION: Eliminates compiler type-check timeout
         let task: EKReminder
         if let safeID = id, let existing = store.calendarItem(withIdentifier: safeID) as? EKReminder {
             task = existing
@@ -179,7 +180,6 @@ public class EventKitManager: ObservableObject {
     }
 }
 
-// RESTORED: CGColor Hex String Converter
 extension CGColor {
     func toHexString() -> String? {
         guard let c = self.components, c.count >= 3 else { return nil }
