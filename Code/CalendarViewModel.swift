@@ -23,7 +23,7 @@ public class CalendarViewModel: ObservableObject {
     @Published public var anchorDate: Date = Date()
     @Published public var searchText: String = ""
     @Published public var selectedView: String = "month"
-    @Published public var daysToDisplay: Int = 7 // Dynamic Multi-Day Slider State
+    @Published public var daysToDisplay: Int = 7
     
     @Published public var coreHourStart: Int = 8
     @Published public var coreHourEnd: Int = 18
@@ -37,7 +37,7 @@ public class CalendarViewModel: ObservableObject {
     public init(eventKitManager: EventKitManager? = nil) {
         self.eventKitManager = eventKitManager ?? EventKitManager()
         let cal = Calendar.current
-        self.currentViewRange = (cal.date(byAdding: .month, value: -2, to: Date())!, cal.date(byAdding: .month, value: 3, to: Date())!)
+        self.currentViewRange = (cal.date(byAdding: .month, value: -3, to: Date())!, cal.date(byAdding: .month, value: 6, to: Date())!)
         
         loadPreferences()
         
@@ -82,7 +82,6 @@ public class CalendarViewModel: ObservableObject {
             for (date, evs) in dict { dict[date] = evs.sorted { $0.isAllDay && !$1.isAllDay } }
             self.groupedEvents = dict
             self.reminders = rawReminders
-            
         } catch { print("Fetch failed: \(error)") }
         isLoading = false
     }
@@ -98,16 +97,13 @@ public class CalendarViewModel: ObservableObject {
     }
     
     public func toggleReminderCompleted(_ reminder: AppReminder) async {
-        do {
-            try await eventKitManager.toggleTaskCompletion(reminder)
-            await refreshData()
-        } catch { print(error) }
+        do { try await eventKitManager.toggleTaskCompletion(reminder); await refreshData() } catch { print(error) }
     }
     
     public var dateRangeArray: [Date] {
         var dates: [Date] = []
-        var current = Calendar.current.startOfDay(for: Date())
-        let end = Calendar.current.date(byAdding: .day, value: 30, to: current)!
+        var current = Calendar.current.startOfDay(for: anchorDate)
+        let end = Calendar.current.date(byAdding: .day, value: 60, to: current)!
         while current <= end { dates.append(current); current = Calendar.current.date(byAdding: .day, value: 1, to: current)! }
         return dates
     }
