@@ -43,9 +43,9 @@ public class EventKitManager: ObservableObject {
         return store.calendars(for: .event)
     }
     
-    public func fetchActiveReminderLists() -> [EKReminderCalendar] {
+    public func fetchActiveReminderLists() -> [EKCalendar] {
         guard isReminderAuthorized else { return [] }
-        return store.reminderCalendars ?? []
+        return store.calendars(for: .reminder)
     }
 
     public func fetchEvents(from start: Date, to end: Date, in calendars: [EKCalendar]? = nil) async throws -> [AppEvent] {
@@ -57,14 +57,17 @@ public class EventKitManager: ObservableObject {
         }.value
     }
     
-    public func fetchReminders(in lists: [EKReminderCalendar]? = nil) async throws -> [AppReminder] {
+    public func fetchReminders(in lists: [EKCalendar]? = nil) async throws -> [AppReminder] {
         guard isReminderAuthorized else { return [] }
-        return try await Task.detached(priority: .userInitiated) { [store] in
-            let targetLists = lists ?? store.reminderCalendars ?? []
-            let predicate = store.predicateForReminders(in: targetLists)
-            let ekReminders = try await store.reminders(matching: predicate)
-            return ekReminders.map { Self.mapToAppReminder($0) }
-        }.value
+        let targetLists = lists ?? store.calendars(for: .reminder)
+        let predicate = store.predicateForReminders(in: targetLists)
+        
+        return await withCheckedContinuation { continuation in
+            store.fetchReminders(matching: predicate) { reminders in
+                let mapped = (reminders ?? []).map { Self.mapToAppReminder($0) }
+                continuation.resume(returning: mapped)
+            }
+        }
     }
 
     nonisolated public static func mapToAppEvent(_ ek: EKEvent) -> AppEvent {
@@ -72,7 +75,7 @@ public class EventKitManager: ObservableObject {
     }
     
     nonisolated public static func mapToAppReminder(_ ek: EKReminder) -> AppReminder {
-        AppReminder(id: ek.calendarItemIdentifier ?? UUID().uuidString, title: ek.title ?? "Task", dueDate: ek.dueDateComponents?.date, isCompleted: ek.isCompleted, listID: ek.calendar.calendarIdentifier, colorHex: ek.calendar.cgColor.toHexString() ?? "#34C759")
+        AppReminder(id: ek.calendarItemIdentifier, title: ek.title ?? "Task", dueDate: ek.dueDateComponents?.date, isCompleted: ek.isCompleted, listID: ek.calendar.calendarIdentifier, colorHex: ek.calendar.cgColor.toHexString() ?? "#34C759")
     }
 
     // CREATE / UPDATE
