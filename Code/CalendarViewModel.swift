@@ -19,10 +19,12 @@ public class CalendarViewModel: ObservableObject {
     @Published public var isLoading: Bool = false
     @Published public var anchorDate: Date = Date()
     @Published public var searchText: String = ""
-    @Published public var selectedView: String = "month"
+    
+    // FIXED: Changed to Optional to support List Selection routing
+    @Published public var selectedView: String? = "month" 
+    
     @Published public var agendaFilter: String = "all"
     @Published public var daysToDisplay: Int = 7
-    
     @Published public var isAddingNew: Bool = false
     @Published public var targetDateForNewItem: Date? = nil
     @Published public var editingEvent: AppEvent? = nil
@@ -47,7 +49,6 @@ public class CalendarViewModel: ObservableObject {
         searchText.isEmpty ? reminders : reminders.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
     }
 
-    // FIXED: Restored dateRangeArray computed property
     public var dateRangeArray: [Date] {
         var dates: [Date] = []
         var current = Foundation.Calendar.current.startOfDay(for: anchorDate)
@@ -114,8 +115,7 @@ public class CalendarViewModel: ObservableObject {
                     currentDay = Foundation.Calendar.current.date(byAdding: .day, value: 1, to: currentDay)!
                 }
             }
-            self.groupedEvents = dict
-            self.reminders = rawReminders
+            self.groupedEvents = dict; self.reminders = rawReminders
         } catch { print(error) }
         isLoading = false
     }
@@ -141,11 +141,7 @@ public class CalendarViewModel: ObservableObject {
     public func deleteEvent(_ event: AppEvent) { try? eventKitManager.deleteEvent(identifier: event.id); Task { await refreshData() } }
     public func deleteTask(_ task: AppReminder) { try? eventKitManager.deleteTask(identifier: task.id); Task { await refreshData() } }
     public func jumpToToday() { anchorDate = Date() }
-    
-    public func toggleCalendarVisibility(calendarID: String) async {
-        if visibleCalendarIDs.contains(calendarID) { visibleCalendarIDs.remove(calendarID) } else { visibleCalendarIDs.insert(calendarID) }
-        await refreshData()
-    }
+    public func toggleCalendarVisibility(calendarID: String) async { if visibleCalendarIDs.contains(calendarID) { visibleCalendarIDs.remove(calendarID) } else { visibleCalendarIDs.insert(calendarID) }; await refreshData() }
     
     private func loadPreferences() {
         let d = UserDefaults.standard
@@ -174,13 +170,6 @@ public class CalendarViewModel: ObservableObject {
         UserDefaults.standard.set(coreHourStart, forKey: "coreHourStart"); UserDefaults.standard.set(coreHourEnd, forKey: "coreHourEnd")
     }
 
-    public func deleteTemplate(at offsets: IndexSet) {
-        templates.remove(atOffsets: offsets)
-        if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") }
-    }
-    
-    public func saveTemplate(_ template: EventTemplate) {
-        templates.append(template)
-        if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") }
-    }
+    public func deleteTemplate(at offsets: IndexSet) { templates.remove(atOffsets: offsets); if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") } }
+    public func saveTemplate(_ template: EventTemplate) { templates.append(template); if let encoded = try? JSONEncoder().encode(templates) { UserDefaults.standard.set(encoded, forKey: "saved_templates") } }
 }
