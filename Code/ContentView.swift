@@ -16,7 +16,6 @@ struct ContentView: View {
         .task { await viewModel.requestAccessAndFetch() }
     }
     
-    // Abstracted to solve SwiftUI compiler complexity timeout
     private var sidebarList: some View {
         List {
             Section("Views") {
@@ -32,7 +31,9 @@ struct ContentView: View {
                     Toggle(cal.title, isOn: Binding(
                         get: { viewModel.visibleCalendarIDs.contains(cal.calendarIdentifier) },
                         set: { _ in Task { await viewModel.toggleCalendarVisibility(calendarID: cal.calendarIdentifier) } }
-                    )).tint(Color(uiColor: cal.cgColor))
+                    ))
+                    // FIXED: Changed uiColor to cgColor to match the variable type
+                    .tint(Color(cgColor: cal.cgColor))
                 }
             }
             Section("Settings") {
@@ -41,7 +42,6 @@ struct ContentView: View {
         }
     }
     
-    // Abstracted to solve SwiftUI compiler complexity timeout
     private var detailStack: some View {
         ZStack(alignment: .bottomTrailing) {
             Group {
