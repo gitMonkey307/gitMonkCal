@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 // Company: gitMonk Interactive
-// Shared Component Registry
+// Project: gitMonkCal
 
 public enum EventSource: String, Codable {
     case eventKit, reminders, local
@@ -16,7 +16,7 @@ public enum UnifiedAgendaItem: Identifiable {
     public var sortDate: Date { switch self { case .event(let e): return e.startDate; case .task(let t): return t.dueDate ?? Date.distantFuture } }
 }
 
-// SHARED COMPONENT: FilterChipView (Now globally visible)
+// SHARED VIEW: FilterChipView
 public struct FilterChipView: View {
     public let title: String; public let id: String; @Binding public var selectedID: String
     public init(title: String, id: String, selectedID: Binding<String>) {
@@ -30,13 +30,12 @@ public struct FilterChipView: View {
     }
 }
 
-// SHARED COMPONENT: LiveTimeIndicator (Now globally visible)
+// SHARED VIEW: LiveTimeIndicator
 public struct LiveTimeIndicator: View {
     public let width: CGFloat
     @State private var now = Date()
     private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     public init(width: CGFloat) { self.width = width }
-
     private var offset: CGFloat {
         let cal = Foundation.Calendar.current
         let mins = Double(cal.component(.hour, from: now) * 60 + cal.component(.minute, from: now))
@@ -77,9 +76,9 @@ public struct AppReminder: Identifiable, Hashable {
 
 extension Color {
     init?(_ hex: String) {
-        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        if hexSanitized.hasPrefix("#") { hexSanitized.remove(at: hexSanitized.startIndex) }
-        var rgb: UInt64 = 0; guard Scanner(string: hexSanitized).scanHexInt64(&rgb) else { return nil }
+        var hs = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if hs.hasPrefix("#") { hs.remove(at: hs.startIndex) }
+        var rgb: UInt64 = 0; guard Scanner(string: hs).scanHexInt64(&rgb) else { return nil }
         self.init(red: Double((rgb & 0xFF0000) >> 16) / 255.0, green: Double((rgb & 0x00FF00) >> 8) / 255.0, blue: Double(rgb & 0x0000FF) / 255.0)
     }
     func toHex() -> String? {
