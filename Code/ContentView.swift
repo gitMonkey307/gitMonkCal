@@ -11,7 +11,7 @@ struct ContentView: View {
         } detail: {
             detailStack
         }
-        // FIXED: Removed 'hex:' label for standard unlabeled initializer
+        // FIXED: Using unlabeled initializer
         .tint(Color(viewModel.themeColorHex) ?? .blue)
         .sheet(isPresented: $viewModel.isAddingNew, onDismiss: { viewModel.targetDateForNewItem = nil }) {
             EventEditView(viewModel: viewModel, initialDate: viewModel.targetDateForNewItem)
