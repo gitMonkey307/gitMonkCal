@@ -9,22 +9,22 @@ on:
 jobs:
   build:
     name: Build gitMonkCal
-    runs-on: macos-14 # Uses the latest stable macOS runner with Xcode 15/16
+    runs-on: macos-14 # macOS 14 runners have both Xcode 15 and 16
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 1. Install XcodeGen (Required to turn project.yml into .xcodeproj)
+      # NEW: This step forces the runner to use Xcode 16.0
+      - name: Select Xcode Version
+        run: sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      # 2. Generate the gitMonkCal project
       - name: Generate Xcode Project
         run: xcodegen generate
 
-      # 3. Build the App and Widget
-      # Note: We use the new 'gitMonkCal' name to avoid namespace collisions
       - name: Build App
         run: |
           xcodebuild clean build \
@@ -39,7 +39,6 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES
 
-      # 4. (Optional) Verify the Build Artifact exists
       - name: Verify Build
         run: |
           if [ -d "build/Build/Products/Release-iphoneos/gitMonkCal.app" ]; then
