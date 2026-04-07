@@ -19,7 +19,6 @@ targets:
       CODE_SIGNING_REQUIRED: NO
       GENERATE_INFOPLIST_FILE: YES
       INFOPLIST_KEY_UILaunchScreen_Generation: YES
-      # CRITICAL: These prevent the app from instantly crashing on launch
       INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "gitMonkCal needs full access to manage your schedule."
       INFOPLIST_KEY_NSRemindersFullAccessUsageDescription: "gitMonkCal needs access to sync your tasks and to-dos."
 
