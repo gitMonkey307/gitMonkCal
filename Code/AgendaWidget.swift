@@ -15,7 +15,7 @@ struct AgendaProvider: TimelineProvider {
             do {
                 try await eventManager.requestCalendarAccess()
                 entryEvents = try await eventManager.fetchEvents(from: currentDate, to: endDate)
-            } catch { print("gitMonk Widget Auth Fail") }
+            } catch { print("Widget auth fail") }
             let nextUpdate = Foundation.Calendar.current.date(byAdding: .minute, value: 30, to: currentDate)!
             completion(Timeline(entries: [AgendaEntry(date: currentDate, events: entryEvents)], policy: .after(nextUpdate)))
         }
@@ -34,9 +34,12 @@ struct AgendaWidgetEntryView : View {
                 Text("No events").font(.system(size: 12)).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .center).padding()
             } else {
                 ForEach(entry.events.prefix(4)) { event in
-                    HStack(spacing: 6) {
-                        RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
-                        Text(event.title).font(.system(size: 10, weight: .semibold)).lineLimit(1)
+                    // NEW: Deep-Link Routing for gitMonk Interactive
+                    Link(destination: URL(string: "gitmonkcal://event/\(event.id)")!) {
+                        HStack(spacing: 6) {
+                            RoundedRectangle(cornerRadius: 2).fill(event.displayColor).frame(width: 4)
+                            Text(event.title).font(.system(size: 10, weight: .semibold)).lineLimit(1)
+                        }
                     }
                 }
             }
@@ -52,7 +55,7 @@ struct AgendaWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: AgendaProvider()) { entry in AgendaWidgetEntryView(entry: entry) }
         .configurationDisplayName("gitMonk Agenda")
-        .description("High-density view by gitMonk Interactive.")
+        .description("Unified schedule by gitMonk Interactive.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge]) 
     }
 }
