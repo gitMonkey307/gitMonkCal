@@ -3,252 +3,129 @@ import SwiftUI
 import Combine
 import EventKit
 
+public enum RecurrenceType: String, CaseIterable, Identifiable {
+    case none, daily, weekly, monthly, yearly
+    public var id: String { rawValue }
+    public var displayName: String { rawValue.capitalized }
+}
+
 @MainActor
 public class CalendarViewModel: ObservableObject {
     @Published public var groupedEvents: [Date: [AppEvent]] = [:]
     @Published public var reminders: [AppReminder] = []
+    
     @Published public var availableCalendars: [EKCalendar] = []
     @Published public var availableReminderLists: [EKReminderCalendar] = []
     @Published public var visibleCalendarIDs: Set<String> = []
     @Published public var visibleReminderListIDs: Set<String> = []
+    
     @Published public var isLoading: Bool = false
     @Published public var anchorDate: Date = Date()
     @Published public var searchText: String = ""
+    @Published public var selectedView: String = "month"
+    @Published public var daysToDisplay: Int = 7 // Dynamic Multi-Day Slider State
+    
     @Published public var coreHourStart: Int = 8
     @Published public var coreHourEnd: Int = 18
     @Published public var eventOpacity: Double = 0.2
     @Published public var themeColorHex: String = "#007AFF"
 
     public var currentViewRange: (start: Date, end: Date)
-    private let eventKitManager: EventKitManager
+    public let eventKitManager: EventKitManager
     private var cancellables = Set<AnyCancellable>()
 
     public init(eventKitManager: EventKitManager? = nil) {
         self.eventKitManager = eventKitManager ?? EventKitManager()
-        updateViewRange()
-        setupObservers()
+        let cal = Calendar.current
+        self.currentViewRange = (cal.date(byAdding: .month, value: -2, to: Date())!, cal.date(byAdding: .month, value: 3, to: Date())!)
+        
         loadPreferences()
-    }
-
-    private func updateViewRange() {
-        let calendar = Calendar.current
-        let start = calendar.date(byAdding: .month, value: -3, to: anchorDate)!
-        let end = calendar.date(byAdding: .month, value: 3, to: anchorDate)!
-        self.currentViewRange = (start, end)
-    }
-
-    private func setupObservers() {
-        NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)
-            .sink { [weak self] _ in Task { await self?.refreshData() } }
-            .store(in: &cancellables)
-
+        
         NotificationCenter.default.publisher(for: .EKEventStoreChanged)
-            .sink { [weak self] _ in Task { await self?.refreshData() } }
-            .store(in: &cancellables)
+            .sink { [weak self] _ in Task { await self?.refreshData() } }.store(in: &cancellables)
     }
 
     public func requestAccessAndFetch() async {
         do {
             try await eventKitManager.requestCalendarAccess()
             try await eventKitManager.requestReminderAccess()
-            loadCalendars()
-            loadReminderLists()
+            self.availableCalendars = eventKitManager.fetchActiveCalendars()
+            self.availableReminderLists = eventKitManager.fetchActiveReminderLists()
+            
+            if visibleCalendarIDs.isEmpty { self.visibleCalendarIDs = Set(availableCalendars.map { $0.calendarIdentifier }) }
+            if visibleReminderListIDs.isEmpty { self.visibleReminderListIDs = Set(availableReminderLists.map { $0.calendarIdentifier }) }
+            
             await refreshData()
-        } catch {
-            print("Authorization Failed: \(error.localizedDescription)")
-        }
-    }
-
-    private func loadCalendars() {
-        let calendars = eventKitManager.fetchActiveCalendars()
-        self.availableCalendars = calendars
-        if visibleCalendarIDs.isEmpty {
-            self.visibleCalendarIDs = Set(calendars.map { $0.calendarIdentifier })
-        }
-    }
-
-    private func loadReminderLists() {
-        let lists = eventKitManager.fetchActiveReminderLists()
-        self.availableReminderLists = lists
-        if visibleReminderListIDs.isEmpty {
-            self.visibleReminderListIDs = Set(lists.map { $0.calendarIdentifier })
-        }
-    }
-
-    public func toggleCalendarVisibility(calendarID: String) async {
-        if visibleCalendarIDs.contains(calendarID) {
-            visibleCalendarIDs.remove(calendarID)
-        } else {
-            visibleCalendarIDs.insert(calendarID)
-        }
-        savePreferences()
-        await refreshData()
-    }
-
-    public func toggleReminderListVisibility(listID: String) async {
-        if visibleReminderListIDs.contains(listID) {
-            visibleReminderListIDs.remove(listID)
-        } else {
-            visibleReminderListIDs.insert(listID)
-        }
-        savePreferences()
-        await refreshReminders()
+        } catch { print("Auth Failed: \(error)") }
     }
 
     public func refreshData() async {
         guard eventKitManager.isAuthorized else { return }
         isLoading = true
-
-        let targetCalendars = availableCalendars.filter { visibleCalendarIDs.contains($0.calendarIdentifier) }
+        
+        let targetCals = availableCalendars.filter { visibleCalendarIDs.contains($0.calendarIdentifier) }
+        let targetLists = availableReminderLists.filter { visibleReminderListIDs.contains($0.calendarIdentifier) }
+        
         do {
-            let rawEvents = try await eventKitManager.fetchEvents(
-                from: currentViewRange.start,
-                to: currentViewRange.end,
-                in: targetCalendars
-            )
-            self.groupedEvents = groupEventsByDay(rawEvents)
-        } catch {
-            print("Failed to fetch events: \(error.localizedDescription)")
-        }
-
-        await refreshReminders()
+            let events = try await eventKitManager.fetchEvents(from: currentViewRange.start, to: currentViewRange.end, in: targetCals)
+            let rawReminders = try await eventKitManager.fetchReminders(in: targetLists)
+            
+            var dict: [Date: [AppEvent]] = [:]
+            for e in events {
+                var currentDay = Calendar.current.startOfDay(for: e.startDate)
+                let endOfDay = Calendar.current.startOfDay(for: e.endDate)
+                while currentDay <= endOfDay {
+                    dict[currentDay, default: []].append(e)
+                    currentDay = Calendar.current.date(byAdding: .day, value: 1, to: currentDay)!
+                }
+            }
+            for (date, evs) in dict { dict[date] = evs.sorted { $0.isAllDay && !$1.isAllDay } }
+            self.groupedEvents = dict
+            self.reminders = rawReminders
+            
+        } catch { print("Fetch failed: \(error)") }
         isLoading = false
     }
 
-    public func refreshReminders() async {
-        let targetLists = availableReminderLists.filter { visibleReminderListIDs.contains($0.calendarIdentifier) }
-        do {
-            let ekReminders = try await eventKitManager.fetchReminders(in: targetLists)
-            self.reminders = ekReminders.map { EventKitManager.mapToAppReminder($0) }.sorted { ($0.dueDate ?? Date.distantPast) < ($1.dueDate ?? Date.distantPast) }
-        } catch {
-            print("Failed to fetch reminders: \(error)")
-        }
-    }
-
-    private func groupEventsByDay(_ events: [AppEvent]) -> [Date: [AppEvent]] {
-        let calendar = Calendar.current
-        var dictionary: [Date: [AppEvent]] = [:]
-
-        for event in events {
-            let startOfDay = calendar.startOfDay(for: event.startDate)
-            let endOfDay = calendar.startOfDay(for: event.endDate)
-
-            var currentDay = startOfDay
-            while currentDay <= endOfDay {
-                dictionary[currentDay, default: []].append(event)
-                currentDay = calendar.date(byAdding: .day, value: 1, to: currentDay) ?? currentDay
-            }
-        }
-
-        for (date, dailyEvents) in dictionary {
-            dictionary[date] = dailyEvents.sorted { lhs, rhs in
-                if lhs.isAllDay && !rhs.isAllDay { return true }
-                if !lhs.isAllDay && rhs.isAllDay { return false }
-                return lhs.startDate < rhs.startDate
-            }
-        }
-
-        return dictionary
-    }
-
-    public var filteredEvents: [AppEvent] {
-        let allEvents = groupedEvents.values.flatMap { $0 }
-        if searchText.isEmpty { return allEvents }
-        return allEvents.filter { $0.title.localizedCaseInsensitiveContains(searchText) || $0.notes?.localizedCaseInsensitiveContains(searchText) == true }
-    }
-
-    public var filteredReminders: [AppReminder] {
-        if searchText.isEmpty { return reminders }
-        return reminders.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
-    }
-
-    public var dateRangeArray: [Date] {
-        var dates: [Date] = []
-        let cal = Calendar.current
-        var current = cal.startOfDay(for: currentViewRange.start)
-        while current <= currentViewRange.end {
-            dates.append(current)
-            current = cal.date(byAdding: .day, value: 1, to: current) ?? current
-        }
-        return dates
-    }
-
-    public func createEvent(
-        title: String,
-        startDate: Date,
-        endDate: Date,
-        isAllDay: Bool,
-        location: String?,
-        notes: String?,
-        calendarID: String,
-        alarms: [TimeInterval],
-        recurrenceType: RecurrenceType = .none
-    ) async throws {
-        guard let calendar = availableCalendars.first(where: { $0.calendarIdentifier == calendarID }) else {
-            throw EventKitError.fetchFailed("Selected calendar not available")
-        }
-        let colorHex = calendar.cgColor.toHexString() ?? "#007AFF"
-        
-        let appEvent = AppEvent(
-            title: title,
-            startDate: startDate,
-            endDate: endDate,
-            isAllDay: isAllDay,
-            location: location,
-            notes: notes,
-            hasAlarms: !alarms.isEmpty,
-            source: .eventKit,
-            calendarID: calendarID,
-            colorHex: colorHex
-        )
-        
-        try await eventKitManager.createEvent(appEvent: appEvent, alarms: alarms, recurrenceType: recurrenceType)
+    public func toggleCalendarVisibility(calendarID: String) async {
+        if visibleCalendarIDs.contains(calendarID) { visibleCalendarIDs.remove(calendarID) } else { visibleCalendarIDs.insert(calendarID) }
         await refreshData()
     }
-
+    
+    public func toggleReminderListVisibility(listID: String) async {
+        if visibleReminderListIDs.contains(listID) { visibleReminderListIDs.remove(listID) } else { visibleReminderListIDs.insert(listID) }
+        await refreshData()
+    }
+    
     public func toggleReminderCompleted(_ reminder: AppReminder) async {
-        // Simplified: refetch as complete toggle requires ID mapping
-        await refreshReminders()
+        do {
+            try await eventKitManager.toggleTaskCompletion(reminder)
+            await refreshData()
+        } catch { print(error) }
+    }
+    
+    public var dateRangeArray: [Date] {
+        var dates: [Date] = []
+        var current = Calendar.current.startOfDay(for: Date())
+        let end = Calendar.current.date(byAdding: .day, value: 30, to: current)!
+        while current <= end { dates.append(current); current = Calendar.current.date(byAdding: .day, value: 1, to: current)! }
+        return dates
+    }
+    
+    public var filteredReminders: [AppReminder] {
+        searchText.isEmpty ? reminders : reminders.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
     }
 
     private func loadPreferences() {
-        let defaults = UserDefaults.standard
-        coreHourStart = defaults.integer(forKey: "coreHourStart")
-        coreHourEnd = defaults.integer(forKey: "coreHourEnd")
-        eventOpacity = defaults.double(forKey: "eventOpacity")
-        themeColorHex = defaults.string(forKey: "themeColorHex") ?? "#007AFF"
-    }
-
-    private func savePreferences() {
-        let defaults = UserDefaults.standard
-        defaults.set(coreHourStart, forKey: "coreHourStart")
-        defaults.set(coreHourEnd, forKey: "coreHourEnd")
-        defaults.set(eventOpacity, forKey: "eventOpacity")
-        defaults.set(themeColorHex, forKey: "themeColorHex")
+        let d = UserDefaults.standard
+        coreHourStart = d.integer(forKey: "coreHourStart") == 0 ? 8 : d.integer(forKey: "coreHourStart")
+        coreHourEnd = d.integer(forKey: "coreHourEnd") == 0 ? 18 : d.integer(forKey: "coreHourEnd")
+        eventOpacity = d.double(forKey: "eventOpacity") == 0 ? 0.2 : d.double(forKey: "eventOpacity")
     }
 
     public func updateCoreHours(start: Int, end: Int) {
-        coreHourStart = max(0, min(23, start))
-        coreHourEnd = max(coreHourStart + 1, min(24, end))
-        savePreferences()
-    }
-
-    public func updateEventOpacity(_ opacity: Double) {
-        eventOpacity = max(0.1, min(1.0, opacity))
-        savePreferences()
-    }
-}
-
-public enum RecurrenceType: String, CaseIterable, Identifiable {
-    case none, daily, weekly, monthly, yearly
-    public var id: String { rawValue }
-    public var displayName: String {
-        switch self {
-        case .none: return "None"
-        case .daily: return "Daily"
-        case .weekly: return "Weekly"
-        case .monthly: return "Monthly"
-        case .yearly: return "Yearly"
-        }
+        coreHourStart = max(0, min(23, start)); coreHourEnd = max(coreHourStart + 1, min(24, end))
+        UserDefaults.standard.set(coreHourStart, forKey: "coreHourStart")
+        UserDefaults.standard.set(coreHourEnd, forKey: "coreHourEnd")
     }
 }
