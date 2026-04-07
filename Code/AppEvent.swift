@@ -5,6 +5,12 @@ public enum EventSource: String, Codable {
     case eventKit, reminders, local
 }
 
+public enum RecurrenceType: String, CaseIterable, Identifiable, Codable {
+    case none, daily, weekly, monthly, yearly
+    public var id: String { rawValue }
+    public var displayName: String { rawValue.capitalized }
+}
+
 public struct AppEvent: Identifiable, Hashable, Codable {
     public let id: String
     public var title: String
